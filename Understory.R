@@ -1,0 +1,1011 @@
+##===================== TITLE =========================
+##...................................................##
+##...US National Park Service........................##
+##...Pacific Island Inventory & Monitoring Network...##
+##...................................................##
+##...Jacob Gross 01/22/2021..........................##
+##...................................................##
+##...Briefing report.................................##
+##...FTPC - Focal Terrestrial Plant Communities......##
+##...................................................##
+##....... Understory Cover Stats and Graphs..........##
+##...................................................##
+
+
+## Used "01_FTPC_DB_20201203.r" to prepare .csv files
+
+
+#.-----------------------------------------------------
+#   Packages  ---- 
+#.......................................................
+
+library(lubridate)
+library(tidyverse)
+library(here)
+library(tidytext)
+
+#.-----------------------------------------------------
+#   Custom Functions  ---- 
+#.......................................................
+
+site.filter <- function(x, UC = "All", C = "All", SF = "All"){
+  y <- x %>%
+    mutate(S_Year = year(Start_Date)) %>%
+    # Create column for Sample Cycle 
+    mutate(S_Cycle = case_when(S_Year <= 2014 ~ "1",
+                               S_Year >= 2015 & S_Year < 2020 ~ "2",
+                               S_Year > 2020 ~ "3")) %>%
+    # Remove QA Plots
+    filter(QA_Plot == FALSE) %>%
+    # Apply site filters
+    {if(C!="All") filter(.,Community == C) else .} %>%
+    {if(SF!="All") filter(.,Sampling_Frame == SF) else .} %>%
+    {if(UC!="All") filter(.,Unit_Code == UC) else .} 
+  
+  return(y)
+  
+}
+
+add.stats <- function(.data, .summary_var, ...){
+  # dataset needs to have columns: "Unit_Code, Sampling_Frame, Strata"
+  # column is the dataset$column that shows the change between two cycles
+  .summary_var <- enquo(.summary_var)
+  #.group_vars <- enquos(...)
+  
+  .data %>%
+    dplyr::group_by(...) %>%
+    dplyr::summarise(NPLOTS = n(),
+                     MEAN_CHG = round(mean(!!.summary_var),3),
+                     MED_CHG = round(median(!!.summary_var),3),
+                     MIN_CHG = round(min(!!.summary_var),3),
+                     MAX_CHG = round(max(!!.summary_var),3),
+                     SD_CHG = sd(!!.summary_var),
+                     ERR_CHG = qt(0.975,df=NPLOTS-1)*(SD_CHG/sqrt(NPLOTS)),
+                     L_CHG = MEAN_CHG - ERR_CHG,
+                     R_CHG = MEAN_CHG + ERR_CHG,
+                     MEAN_1 = round(mean(`1`),3),
+                     MED_1 = round(median(`1`),3),
+                     MIN_1 = round(min(`1`),3),
+                     MAX_1 = round(max(`1`),3),
+                     SD_1 = sd(`1`),
+                     ERR_1 = qt(0.975,df=NPLOTS-1)*(SD_1/sqrt(NPLOTS)),
+                     L_1 = MEAN_1-ERR_1,
+                     R_1 = MEAN_1+ERR_1,
+                     MEAN_2 = round(mean(`2`),3),
+                     MED_2 = round(median(`2`),3),
+                     MIN_2 = round(min(`2`),3),
+                     MAX_2 = round(max(`2`),3),
+                     SD_2 = sd(`2`),
+                     ERR_2 = qt(0.975,df=NPLOTS-1)*(SD_2/sqrt(NPLOTS)),
+                     L_2 = MEAN_2-ERR_2,
+                     R_2 = MEAN_2+ERR_2,) %>%
+    tidyr::pivot_longer(
+      # period (.) means match any character
+      # asterisk (*) means match zero or more times
+      # use () to distinguish groups
+      # therefore the following breaks apart two words separated by underscore (_)
+      cols = MEAN_CHG:R_2,
+      names_to = c(".value", "S_Cycle"), 
+      names_pattern = "(.*)_(.*)") %>%
+    dplyr::arrange(S_Cycle)
+  
+}
+
+#.-----------------------------------------------------
+#   Loading Data  ---- 
+#.......................................................
+
+list.files()
+list.files("FTPC_Export2")
+
+# Select last folder in FTPC_Export
+DB_download <- tail(list.files("FTPC_Export2"), n=1)
+print(DB_download)
+
+
+# Read tables
+Cover_High <- read_csv(here("FTPC_Export2", DB_download, "Species_coverage_High.csv"))
+Cover_Low <- read_csv(here("FTPC_Export2", DB_download, "Species_coverage_Low.csv"))
+Event <- read_csv(here("FTPC_Export2", DB_download, "Event.csv"))
+
+table(Event$Plot_Type)
+levels(as.factor(Cover_Low$Plot_Type))
+
+
+#.-----------------------------------------------------
+#   Apply Site Filter Function ---- 
+#.......................................................
+# User selected subsets
+levels(as.factor(Event$Unit_Code))
+uc <- "HALE"
+
+levels(as.factor(Event$Community))
+c <- "All"
+
+levels(as.factor(Event$Sampling_Frame))
+sf <- "Subalpine Shrubland"
+
+
+Event_filter <- site.filter(Event, uc, c, sf) %>%
+  select(S_Year, S_Cycle, Unit_Code, Sampling_Frame, 
+         Plot_Type, Plot_Number, Plot_ID, Event_ID)
+  
+  
+Cover_High_filter <- site.filter(Cover_High, uc, c, sf)
+Cover_Low_filter <- site.filter(Cover_Low, uc, c, sf)
+
+#.-----------------------------------------------------
+#   Paired Plots ---- 
+#.......................................................
+
+# display total number of fixed and rotational plots in subset
+table(Event_filter$Plot_Type)
+ 
+# Plot totals Fixed and Rotational separate 
+plot_totals <- Event_filter %>%
+  group_by(S_Cycle, S_Year, Unit_Code, Sampling_Frame, Plot_Type) %>%
+  summarise(plot_ss = n(), .groups = 'drop')
+  #plot_ss = plot sample size
+plot_totals 
+
+# Plot totals Fixed and Rotationals combined
+plot_totals_all <- Event_filter %>%
+  group_by(S_Cycle, S_Year, Unit_Code, Sampling_Frame) %>%
+  summarise(plot_ss = n(), .groups = 'drop')
+  # plot_ss = plot sample size
+plot_totals_all
+
+# Which plots are paired matches between years 
+fixed_plots <- Event_filter %>%
+  filter(Plot_Type=="Fixed") %>%  
+  select(-S_Year,-Plot_Type,-Event_ID) %>%
+  mutate(Sampled = TRUE) %>%
+  complete(S_Cycle, # Complete a data frame with missing combinations of factors 
+           # nesting = find only the combinations that occur in the selected factors
+           nesting(Unit_Code, Sampling_Frame, Plot_Number, Plot_ID),  
+           fill = list(Sampled = FALSE))
+
+# If fixed plots without 2 pairs (non-paired) exist display here
+fixed_plots[fixed_plots$Sampled==FALSE,]
+
+# Fixed plots sampled during Cycle 1 and Cycle 2
+plots_f_match <- fixed_plots %>%
+  pivot_wider(names_from = S_Cycle, values_from = Sampled) %>%
+  filter(`1` == TRUE & `2` == TRUE) 
+plots_f_match    
+
+paired_plots <- nrow(plots_f_match) 
+paste("Number of Paired Plots =", paired_plots)
+
+
+#.-----------------------------------------------------
+#   Fixed Plot Subset ---- 
+#.......................................................
+
+Cov_Fixed_Low <- plots_f_match %>%
+  left_join(Cover_Low_filter,
+             by = c("Unit_Code", "Sampling_Frame", 
+                    "Plot_Number", "Plot_ID"))
+
+Cov_Fixed_High <- plots_f_match %>%
+  left_join(Cover_High_filter,
+             by = c("Unit_Code", "Sampling_Frame", 
+                    "Plot_Number", "Plot_ID"))
+
+
+Cover_Fixed <- bind_rows(UNDERSTORY2 = Cov_Fixed_High, 
+                           UNDERSTORY1 = Cov_Fixed_Low, .id = "Strata") %>%
+  mutate(Strata = as.factor(Strata)) %>%
+  mutate(Strata = fct_rev(Strata)) %>%
+  mutate(Plot_Number = as.factor(Plot_Number)) %>%
+  mutate(S_Cycle = as.factor(S_Cycle)) %>%
+  filter(is.na(Dead) | Dead == FALSE) %>%  
+  select(S_Cycle, S_Year, Unit_Code, Sampling_Frame, Plot_Type, Plot_Number, 
+         Transect, Point, Strata, Nativity, Life_form, Code, Name,
+         Center_X_Coord, Center_Y_Coord, UTM_Zone, Datum)
+
+#.......................................................
+#   Lump Spp ---- 
+#....................................................... 
+
+Cover <- Cover_Fixed
+
+# Check Codes/Species
+table(Cover_Fixed$Code)
+table(Cover_Fixed$Name)
+
+# Get unique names
+name_code <- Cover_Fixed %>%
+  group_by(Nativity, Name, Code, Life_form) %>%
+  summarize(n = n())
+
+# # If IDs are uncertain for some species lump by "Code" here:
+# Cover <- Cover %>%
+#   mutate(Life_form=replace(Life_form, Code=="CIBSP.", "Tree Fern")) %>%
+#   mutate(Code=replace(Code, Code=="CIBCHA", "CIBGLA")) %>%
+#   mutate(Name=replace(Name, Name=="Cibotium  chamissoi", "Cibotium  glaucum")) %>%
+#   mutate(Code=replace(Code, Code=="CIBSP.", "CIBGLA")) %>%
+#   mutate(Name=replace(Name, Name=="Cibotium  sp.", "Cibotium  glaucum")) 
+#   
+# Cover <- Cover %>%
+#   mutate(Code=replace(Code, Code=="SADSOU", "SADSP.")) %>%
+#   mutate(Name=replace(Name, Name=="Sadleria  souleyetiana", "Sadleria  sp.")) %>%
+#   mutate(Code=replace(Code, Code=="SADCYA", "SADSP.")) %>%
+#   mutate(Name=replace(Name, Name=="Sadleria  cyatheoides", "Sadleria  sp.")) %>%
+#   mutate(Code=replace(Code, Code=="SADPAL", "SADSP.")) %>%
+#   mutate(Name=replace(Name, Name=="Sadleria  pallida", "Sadleria  sp."))
+# 
+# Cover <- Cover %>%
+#   mutate(Code=replace(Code, Code=="STECAL", "STESP.")) %>%
+#   mutate(Name=replace(Name, Name=="Stenogyne  calaminthoides", "Stenogyne  sp."))
+# 
+# Cover <- Cover %>%
+#   mutate(Life_form=replace(Life_form, Code=="MELSP.", "Tree")) %>%
+#   mutate(Code=replace(Code, Code=="MELSP.", "MELCLU")) %>%
+#   mutate(Name=replace(Name, Name=="Melicope  sp.", "Melicope  clusiifolia"))
+# 
+# Cover <- Cover %>%
+#   mutate(Code=replace(Code, Code=="ASPSPH", "ASPSP.2")) %>%
+#   mutate(Name=replace(Name, Name=="Asplenium  sphenotomum", "Asplenium  sp.")) 
+
+
+# Check if Lumped Correctly
+name_code_lump <- Cover %>%
+  group_by(Nativity, Name, Code, Life_form) %>%
+  summarize(n = n())
+
+name_code_lump %>%
+  group_by(Name) %>% 
+  filter(n()>1)
+
+# If same species being lumped occurs at same point, lump records 
+#  together into one hit, so not to double count.
+
+Cover <- Cover %>%
+  distinct(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, 
+           Transect, Point, Strata, Nativity, Code, .keep_all = TRUE) 
+
+#.......................................................
+#   Remove Nativity Unknown?---- 
+#.......................................................
+
+# Decide if it is appropriate or not to remove records that 
+# show Nativity == Unknown
+Cover_Fixed %>%
+  filter(Nativity == "Unknown")
+table(Cover$Nativity)
+
+# Remove if needed...
+# Cover <- Cover %>%  
+#  filter(Nativity != "Unknown") 
+
+# "Cover" ----
+# Dataset is ready for analysis
+
+
+#.-----------------------------------------------------
+#   ***** Sections *****  ----
+#......................................................
+
+# Sections start with most general (total cover) and proceed 
+#  to most specific (species x plot) 
+
+# ""Cover" dataframe is the main dataset used at beginning of 
+#   each following sections: 
+
+# 1) Total % cover            (Tot_Cov)
+# 2) Nativity Total % cover   (Nat_Cov)
+# 3) Nativity Richness        (Nat_Rich)
+# 4) Species % Cover          (Spp_Cov)
+# 5) Species Presence         (Spp_Pres)
+
+
+#.-----------------------------------------------------
+# 1) Total % cover ---- 
+#.......................................................
+
+# Total can be greater Than 100%
+Tot_Cov <- Cover %>%
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, 
+           Transect, Point, Strata) %>%
+  # Count hits at each cover point:
+  summarise(Hits_All_Sp = n(), .groups = 'drop')  %>%
+  # But don't count record if entire plot had no hits: (e.g. transect is NA )
+  mutate(Hits_All_Sp = replace(Hits_All_Sp, is.na(Transect), 0)) %>%
+  # group by plot (i.e. remove Transect and Point from grouping variable)
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, Strata) %>%
+  #Total hits at each point for each strata for entire plot 
+  # (can be > 300 points or >100%)
+  summarise(tot_pct_cov = (sum(Hits_All_Sp)) / 300 * 100, .groups = 'drop')
+
+#........DENSITY PLOT ---- 
+means <- Tot_Cov %>%
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, Strata) %>%
+  summarise(mean = mean(tot_pct_cov), .groups = 'drop') %>%
+  mutate(mean = round(mean,1))
+
+ 
+ggplot(Tot_Cov, aes(x = tot_pct_cov, fill = S_Cycle)) +
+  geom_density(alpha = 0.4) +
+  geom_vline(data = means, aes(xintercept = mean, color= S_Cycle)) +
+  geom_text(data = means, aes(x = mean, label =mean), 
+            y = 0.01, angle = 90, vjust = -0.2, size = 3) +
+  scale_fill_brewer(palette="Accent") +
+  scale_color_brewer(palette="Accent") +
+  facet_grid(rows = vars(Strata), cols = vars(Sampling_Frame)) +
+  xlim(0, max(Tot_Cov$tot_pct_cov) + 20)
+
+#........BAR COV/PLOT# ----
+Tot_Cov %>%
+  ggplot(aes(x = reorder_within(Plot_Number, desc(tot_pct_cov), Strata), y = tot_pct_cov, fill = S_Cycle)) +
+  geom_col(position = position_dodge()) +
+  scale_fill_brewer(palette="Accent") +
+  facet_wrap(vars(Strata), dir = "v", scales = "free_x") +
+  ylab("Total % Cover") + xlab("Plot Number") +
+  scale_x_reordered()
+
+# Change ----
+Tot_Cov_Chg <- Tot_Cov %>%
+  ungroup() %>%
+  #group_by("Unit_Code", "Sampling_Frame","Plot_Number","Nativity") %>%
+  complete(S_Cycle, # Complete a data frame with missing combinations of factors 
+           # nesting = find only the combinations that occur in the selected factors
+           nesting(Unit_Code, Sampling_Frame, Plot_Number, Strata),  
+           fill = list(tot_pct_cov = 0)) %>%
+  pivot_wider(names_from = S_Cycle, values_from = tot_pct_cov) %>%
+  mutate(tot_pct_cov_chg = round(`2` - `1`, 2))
+
+#........BAR CHG/PLOT# ----
+Tot_Cov_Chg %>%
+  mutate(direction = case_when(tot_pct_cov_chg > 0 ~ "Pos",
+                               tot_pct_cov_chg < 0 ~ "Neg" )) %>%
+  ggplot(aes(x = reorder_within(Plot_Number, desc(tot_pct_cov_chg), Strata), y = tot_pct_cov_chg, fill = direction)) +
+  geom_col(position = position_dodge()) +
+  scale_fill_manual(values = c("#CC0000", "#009900")) +
+  #scale_fill_brewer(palette="Accent") +
+  #facet_grid(rows = vars(Strata), cols = vars(Sampling_Frame)) +
+  facet_wrap(vars(Strata), dir = "v", scales = "free_x") +
+  scale_x_reordered() +
+  xlab("Plot Number") + ylab("Change in Total % Cover") +
+  theme(legend.position = "none")
+
+
+# Summary Stats ----
+
+# Use custom function at top of script to add stats to dataset
+Tot_Cov_Stats <- add.stats(
+  .data =  Tot_Cov_Chg,
+  .summary_var = tot_pct_cov_chg,
+  Unit_Code, Sampling_Frame, Strata)
+
+
+# ....... BAR TOTAL MEANS ----
+
+Tot_Cov_Stats %>%
+  #filter(S_Cycle != "CHG") %>%
+  ggplot(aes(x = S_Cycle, y = MEAN, fill = S_Cycle)) +
+  geom_bar(stat="identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin=L, ymax=R), width=.2,
+                position=position_dodge(.9)) +
+  labs(y = "Total % Cover", x = "Sample Cycle") +
+  scale_fill_brewer(palette="Accent") +
+  facet_grid(rows = vars(Strata), cols = vars(Sampling_Frame))
+
+# ....... Bar: SF compare % cover ----
+#' *notes*
+# Compare total percent cover of plots to other sampling frames.
+#' *Note: subset options may need adjusted to add other sampling frames to graph*
+
+# Tot_Cov_Stats %>%
+#   filter(S_Cycle == '2') %>%
+#   mutate(highlight = case_when(Unit_Code == "AMME" ~ 'AMME',
+#                                Unit_Code != "AMME" ~ 'Other')) %>%
+#   ggplot(aes(x = reorder_within(Sampling_Frame, -MEAN, Strata), 
+#              y = MEAN, 
+#              fill = highlight)) +
+#   geom_bar(stat="identity") + #, position = position_dodge()
+#   geom_errorbar(aes(ymin=L, ymax=R), width=.2) + #,position=position_dodge(.9)
+#   labs(x = "Sampling Frame", y = "% Cover") +  
+#   scale_x_reordered() +
+#   theme(axis.text.x=element_text(angle = 90, hjust = 1, vjust = 0.33)) +
+#   guides(fill=FALSE) +
+#   scale_fill_manual(values = c("#FF3300", "#736F6E")) +
+#   facet_wrap( ~Strata, scales = 'free_x', dir = "v")
+
+
+
+#........JITTER PLOT ----
+# Total Cover Change jitter plot
+Tot_Cov_Chg %>%
+  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg)) +
+  geom_jitter(width = 0.05) +
+  geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
+  stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
+  labs(x = "Sampling Frame", y = "Change in % Cover") +
+  facet_wrap(vars(Strata), dir = "v") 
+ 
+
+#.-----------------------------------------------------
+# 2) Nativity Total % cover ----
+#.......................................................
+
+# Can Total Greater Than 100%
+
+# Calculate Total Percent Cover for Native vs. Non-native
+Nat_Cov <- Cover %>%
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, 
+           Transect, Point, Strata, Nativity) %>%
+  # Count hits at each cover point:
+  summarise(Hits_All_Nat = n(), .groups = 'drop')  %>%
+  # But don't count record if entire plot had no hits: (e.g. transect is NA )
+  mutate(Hits_All_Nat = replace(Hits_All_Nat, is.na(Transect), 0)) %>%
+  # group by plot (i.e. remove Transect and Point from grouping variable)
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, Strata, Nativity) %>%
+  #Total hits at each point for each strata for entire plot 
+  # (can be > 300 points or >100%)
+  summarise(tot_pct_cov = (sum(Hits_All_Nat)) / 300 * 100, .groups = 'drop')
+
+#  ........ BAR COV/PLOT----
+Nat_Cov %>%
+  ggplot(aes(x = reorder_within(Plot_Number, -tot_pct_cov, within = Nativity), 
+             y = tot_pct_cov, fill = S_Cycle)) +
+  geom_bar(stat="identity", position = position_dodge()) +
+  scale_fill_brewer(palette="Accent") +
+  facet_grid(rows = vars(Strata), cols = vars(Nativity), scales = "free") +
+  #facet_wrap(vars(Strata), dir = "v", scales = "free_x") +
+  scale_x_reordered() +
+  xlab("Plot Number")
+
+# ...Change ----
+
+# Calculate Change in Total Percent Cover for Native & Non-Native Frequency
+Nat_Cov_Chg <- Nat_Cov %>%
+  ungroup() %>%
+  #group_by("Unit_Code", "Sampling_Frame","Plot_Number","Nativity") %>%
+  complete(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, Strata, Nativity,  
+           fill = list(tot_pct_cov = 0)) %>%
+  pivot_wider(names_from = S_Cycle, values_from = tot_pct_cov) %>%
+  mutate(tot_pct_cov_chg = round(`2` - `1`, 2))  
+
+#  ........ BAR CHG/PLOT----
+Nat_Cov_Chg %>%
+  mutate(Plot_Number = reorder_within(Plot_Number, -tot_pct_cov_chg, 
+                                      list(Strata, Nativity))) %>%
+  ggplot(aes(x = Plot_Number, y = tot_pct_cov_chg, fill = Nativity)) +
+  geom_col(position = position_dodge()) +
+  facet_wrap(~ Strata + Nativity, scales = "free_x") +
+  scale_fill_brewer(palette="Dark2") +
+  scale_x_reordered() +
+  xlab("Plot Number") + ylab("Change in % Cover")
+
+
+#........JITTER PLOT ----
+Nat_Cov_Chg %>%
+  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg)) +
+  geom_jitter(width = 0.05) +
+  geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
+  stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
+  facet_grid(vars(Strata), vars(Nativity))  
+
+
+#........QUAD NAT COVER----
+plt <- max(c(abs(max(Nat_Cov_Chg$tot_pct_cov_chg)), 
+                 abs(min(Nat_Cov_Chg$tot_pct_cov_chg))))
+
+Nat_Cov_Chg %>%
+  select(-`1`, -`2`) %>%
+  pivot_wider(names_from = Nativity, values_from = tot_pct_cov_chg) %>%
+  ggplot(aes(x = Native, y = `Non-Native`)) +
+  annotate("rect", xmin = 0, xmax = Inf, ymin = 0, ymax = -Inf, fill= "green", alpha = .25) + 
+  annotate("rect", xmin = 0, xmax = -Inf, ymin = Inf, ymax = 0, fill= "red", alpha = .25) +
+  geom_point() +
+  geom_vline(xintercept = 0) + 
+  geom_hline(yintercept = 0) +
+  xlim(min(-plt),max(plt)) +
+  ylim(max(plt), min(-plt)) +
+  facet_wrap(vars(Strata), dir = "v") +
+  ylab("Change in Non-Native Cover") +
+  xlab("Change in Native Cover") 
+   
+
+
+
+# ...Summary Stats ----
+
+# Use custom function at top of script to add stats to dataset
+Nat_Cov_Stats <- add.stats(
+  .data =  Nat_Cov_Chg,
+  .summary_var = tot_pct_cov_chg,
+  Unit_Code, Sampling_Frame, Strata, Nativity)
+
+
+#........BAR YEARLY MEANS----
+Nat_Cov_Stats %>%
+  ggplot(aes(x = S_Cycle, y = MEAN, fill = Nativity)) +
+  geom_col(position = position_dodge()) +
+  geom_errorbar(aes(ymin=L, ymax=R), width=.2,
+                position=position_dodge(.9)) +
+  labs(y = "% Cover") +
+  facet_wrap(vars(Strata, Nativity), scales = "free_x") +
+  scale_fill_brewer(palette="Dark2") 
+
+
+#........BAR CHG----
+Nat_Cov_Stats %>%
+  filter(S_Cycle == "CHG") %>%
+  ggplot(aes(x = S_Cycle, y = MEAN, fill = Nativity)) +
+  geom_col(position = position_dodge()) +
+  geom_errorbar(aes(ymin=L, ymax=R), width=.2,
+                position=position_dodge(.9)) +
+  labs(y = "Change in Total % Cover") +
+  facet_wrap(vars(fct_rev(Strata))) +
+  scale_fill_brewer(palette="Dark2") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+ggsave(here("figures", "bar_mean_cov_chg_nativity.png"))  
+
+
+#.-----------------------------------------------------
+# 3) Nativity Richness ----
+#.......................................................
+
+Nat_Rich <- Cover %>%
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, Strata, Nativity) %>%
+  summarise(richness = n_distinct(Code))
+
+#........STRIP CHRT PAIR -----
+Nat_Rich %>%
+  #mutate(Status = fct_rev(Status)) %>%
+  ggplot(aes(x=S_Cycle, y=richness, group=Plot_Number)) +
+  geom_line(size=1, alpha=0.5, position=position_dodge(width=0.2)) +
+  geom_point(position=position_dodge(width=0.2)) +
+  xlab('Sample Cycle') +
+  ylab('Understory Richness') +
+  #scale_fill_brewer(palette="Accent") +
+  #scale_color_brewer(palette="Accent") + 
+  #theme_bw() +
+  facet_grid(cols = vars(Nativity), rows = vars(Strata)) 
+
+# ...Change ----
+
+# Calculate Change in Total Percent Cover for Native & Non-Native Frequency
+Nat_Rich_Chg <- Nat_Rich %>%
+  ungroup() %>%
+  #group_by("Unit_Code", "Sampling_Frame","Plot_Number","Nativity") %>%
+  complete(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, Strata, Nativity,  
+           fill = list(richness = 0)) %>%
+  pivot_wider(names_from = S_Cycle, values_from = richness) %>%
+  mutate(richness_chg = round(`2` - `1`, 2))
+
+#  ........STRIP CHRT CHG----
+Nat_Rich_Chg %>%
+  ggplot(aes(x = Sampling_Frame, y=richness_chg)) +
+  geom_jitter(width = 0.05) +
+  ylab('Change in richness') +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  stat_summary(fun=mean, geom="point", shape=95,
+               size=8, color="red") +
+  geom_hline(yintercept=0, linetype="dashed", color = "gray", size = 1) +
+  facet_grid(cols = vars(Nativity), rows = vars(Strata)) 
+
+
+#........QUAD NAT RICH----
+plt.r <- max(c(abs(max(Nat_Rich_Chg$richness_chg)), 
+             abs(min(Nat_Rich_Chg$richness_chg))))
+
+Nat_Rich_Chg %>%
+  select(-`1`, -`2`) %>%
+  pivot_wider(names_from = Nativity, values_from = richness_chg) %>%
+  ggplot(aes(x = Native, y = `Non-Native`)) +
+  annotate("rect", xmin = 0, xmax = Inf, ymin = 0, ymax = -Inf, fill= "green", alpha = .25) + 
+  annotate("rect", xmin = 0, xmax = -Inf, ymin = Inf, ymax = 0, fill= "red", alpha = .25) +
+  geom_point() +
+  geom_vline(xintercept = 0) + 
+  geom_hline(yintercept = 0) +
+  xlim(min(-plt.r),max(plt.r)) +
+  ylim(max(plt.r), min(-plt.r)) +
+  facet_wrap(vars(Strata), dir = "v") +
+  ylab("Change in Non-Native Richness") +
+  xlab("Change in Native Richness") 
+
+# ...Summary Stats ----
+
+# Use custom function at top of script to add stats to dataset
+Nat_Rich_Stats <- add.stats(
+  .data =  Nat_Rich_Chg,
+  .summary_var = richness_chg,
+  Unit_Code, Sampling_Frame, Strata, Nativity)
+
+#........BAR YEARLY MEANS----
+Nat_Rich_Stats %>%
+  ggplot(aes(x = S_Cycle, y = MEAN, fill = Nativity)) +
+  geom_col(position = position_dodge()) +
+  geom_errorbar(aes(ymin=L, ymax=R), width=.2,
+                position=position_dodge(.9)) +
+  labs(y = "richness") +
+  facet_wrap(vars(Strata, Nativity), scales = "free_x") +
+  scale_fill_brewer(palette="Dark2") 
+
+#........BAR CHG----
+Nat_Rich_Stats %>%
+  filter(S_Cycle == "CHG") %>%
+  ggplot(aes(x = S_Cycle, y = MEAN, fill = Nativity)) +
+  geom_col(position = position_dodge()) +
+  geom_errorbar(aes(ymin=L, ymax=R), width=.2,
+                position=position_dodge(.9)) +
+  labs(y = "Change in richness") +
+  facet_wrap(vars(fct_rev(Strata))) +
+  scale_fill_brewer(palette="Dark2") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+ggsave(here("figures", "bar_mean_nat_rich_chg.png")) 
+
+#.-----------------------------------------------------
+# 4) Species % Cover ----
+#.......................................................
+
+
+# Calculate Spp Cover (but combine Strata 1 & 2)
+Spp_Cov_1a2 <- Cover %>%
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, 
+           Transect, Point, Nativity, Code, Name, Life_form) %>%
+  summarise(Hits_Sp = n_distinct(n()), .groups = "drop") %>%
+  # group by plot (i.e. remove Transect and Point from grouping variable)
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, 
+           Nativity, Code, Name, Life_form) %>%
+  #Total hits at each point for each strata for entire plot 
+  # (cannot be greater than 100%)
+  summarise(pct_cov_sp = (sum(Hits_Sp)) / 300 * 100, .groups = 'drop')
+
+# Calculate Total Percent Cover for Native vs. Non-native
+Spp_Cov <- Cover %>%
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, 
+           Transect, Point, Strata, Nativity, Code, Name, Life_form) %>%
+  # Count hits at each cover point (will be '1' for each species)
+  summarise(Hits_Sp = n(), .groups = 'drop')  %>%
+  # group by plot (i.e. remove Transect and Point from grouping variable)
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, Strata, 
+           Nativity, Code, Name, Life_form) %>%
+  #Total hits at each point for each strata for entire plot 
+  # (cannot be greater than 100%)
+  summarise(pct_cov_sp = (sum(Hits_Sp)) / 300 * 100, .groups = 'drop')
+
+# ...Change ----
+
+
+# Calculate Change in Pct Cover by Species
+Spp_Cov_Chg <- Spp_Cov %>%
+  ungroup() %>%
+  #group_by("Unit_Code", "Sampling_Frame","Plot_Number","Nativity") %>%
+  complete(S_Cycle, nesting(Unit_Code, Sampling_Frame, Plot_Number, Strata, 
+           Nativity, Code, Name, Life_form),
+           fill = list(pct_cov_sp = 0)) %>%
+  pivot_wider(names_from = S_Cycle, values_from = pct_cov_sp) %>%
+  mutate(pct_cov_sp_chg = round(`2` - `1`, 3))  
+
+# Calculate Change in Pct Cover by Species (Strata 1 and 2 combined)
+Spp_Cov_Chg_1a2 <- Spp_Cov_1a2 %>%
+  ungroup() %>%
+  #group_by("Unit_Code", "Sampling_Frame","Plot_Number","Nativity") %>%
+  complete(S_Cycle, nesting(Unit_Code, Sampling_Frame, Plot_Number, 
+                            Nativity, Code, Name, Life_form),
+           fill = list(pct_cov_sp = 0)) %>%
+  pivot_wider(names_from = S_Cycle, values_from = pct_cov_sp) %>%
+  mutate(pct_cov_sp_chg = round(`2` - `1`, 3)) 
+
+# ...Summary Stats ----
+
+# Use custom function at top of script to add stats to dataset
+Spp_Cov_Stats <- add.stats(
+  .data =  Spp_Cov_Chg,
+  .summary_var = pct_cov_sp_chg, 
+  Unit_Code, Sampling_Frame, Strata, Nativity, Code, Name, Life_form)
+
+# Add stats to dataset (Strata 1&2 Combined)
+Spp_Cov_Stats_1a2 <- add.stats(
+  .data =  Spp_Cov_Chg_1a2,
+  .summary_var = pct_cov_sp_chg,
+  Unit_Code, Sampling_Frame, Nativity, Code, Name, Life_form)
+
+#........BAR SPP CHG  ----
+
+p.means <- Spp_Cov_Stats %>%
+  filter(S_Cycle == "CHG") %>%
+  filter(MEAN > 0.5 | MEAN < -0.5) %>%
+  mutate(pct_cov_sp_chg = MEAN) %>%
+  mutate(ERR = case_when(NPLOTS < 4 ~ NA_real_ , TRUE ~ ERR))
+p.code <- p.means$Code
+
+p <- Spp_Cov_Chg %>%
+  filter(Code %in% p.code) %>%
+  mutate(Strata = fct_rev(Strata)) %>%
+  ggplot(aes(x = reorder(Name, pct_cov_sp_chg), y = pct_cov_sp_chg, fill = Nativity)) +
+  geom_point(
+    position = position_jitterdodge(jitter.width = 0.1, jitter.height = 0, dodge.width = 0.8),
+    shape = 21, size = 1, alpha = 0.5) +
+  geom_bar(data = p.means, colour = "black", stat="identity", alpha = 0.5) +
+  geom_linerange(data = p.means, aes(ymin = MEAN - ERR, ymax = MEAN + ERR)) +
+  geom_hline(yintercept=0, linetype="solid", 
+             color = "black", size=0.5) +
+  labs(title="", y="Change in % Cover", x="Species") +
+  facet_grid(,vars(Strata)) +
+  scale_fill_brewer(palette="Dark2") +
+  guides(fill = guide_legend(override.aes = list(shape = NA))) +
+  theme(legend.title=element_blank()) +
+  coord_flip()
+p
+png("spp_cov_chg.png", width = 800, height = 375)
+plot(p)
+dev.off()
+
+table(Cover$Code)
+table(Cover$Name)
+
+#........BAR SPP CHG 1a2 ----
+
+p.means1a2 <- Spp_Cov_Stats_1a2 %>%
+  filter(S_Cycle == "CHG") %>%
+  filter(MEAN > 0.5 | MEAN < -0.5) %>%
+  mutate(pct_cov_sp_chg = MEAN) %>%
+  mutate(ERR = case_when(NPLOTS < 4 ~ NA_real_ , TRUE ~ ERR))
+p.code1a2 <- p.means1a2$Code
+
+p1a2 <- Spp_Cov_Chg_1a2 %>%
+  filter(Code %in% p.code1a2) %>%
+  ggplot(aes(x = reorder(Name, pct_cov_sp_chg), y = pct_cov_sp_chg, fill = Nativity)) +
+  geom_linerange(data = p.means1a2, aes(ymin = MEAN - ERR, ymax = MEAN + ERR)) +
+  geom_point(
+    position = position_jitterdodge(jitter.width = 0.1, jitter.height = 0, dodge.width = 0.8),
+    shape = 21, size = 1, alpha = 0.5) +
+  geom_bar(data = p.means1a2, colour = "black", stat="identity", alpha = 0.5) +
+  geom_hline(yintercept=0, linetype="solid", 
+             color = "black", size=0.5) +
+  labs(title="", y="Change in % Cover", x="Species") +
+  scale_fill_brewer(palette="Dark2") +
+  guides(fill = guide_legend(override.aes = list(shape = NA))) +
+  #scale_color_discrete() +
+  #name = NULL, values = c("Specificity" = "black")) +
+  theme(legend.title=element_blank()) +
+  coord_flip()
+p1a2
+png(here("figures","spp_cov_chg_1a2.png"), width = 400, height = 200)
+plot(p1a2)
+dev.off()
+
+#........TREE MAP  ----
+
+# Calculate Total Proportion of Hits
+# Calculate Spp Cover (but combine Strata 1 & 2)
+Spp_Hits <- Cover %>%
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, 
+           Transect, Point, Nativity, Code, Name, Life_form) %>%
+  summarise(Hits_Sp = n_distinct(n()), .groups = "drop") %>%
+  # group by plot (i.e. remove Transect and Point from grouping variable)
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, 
+           Nativity, Code, Name, Life_form) %>%
+  #Total hits at each point for each strata for entire plot 
+  # (cannot be greater than 100%)
+  summarise(tot_hits = (sum(Hits_Sp)), .groups = 'drop') %>%
+  filter(S_Cycle == "2")
+
+
+library(treemapify)
+
+tree.plot <- ggplot(Spp_Hits, aes(area = tot_hits, subgroup = Nativity, 
+                     fill = Nativity, label = Name)) +
+  geom_treemap(size = 2) +
+  geom_treemap_subgroup_border(colour = "gray30", size = 5, alpha = 0.5) +
+  geom_treemap_subgroup_text(place = "bottom", colour = "gray30", alpha = 0.5, 
+                             grow = F, size = 20) +
+  geom_treemap_text(fontface = "italic", colour = "white", place = "middle",
+                    grow = TRUE, reflow = T, min.size = 5) +
+  scale_fill_brewer(palette="Dark2") +
+  theme(legend.position = "none")
+tree.plot
+png(here("figures","tree_plot_230x160r180.png"), width = 230, height = 160, 
+    units = 'mm', res = 180)
+plot(tree.plot)
+dev.off()
+
+# # Average Cover Treemap
+# Spp_Cov %>%
+#   filter(S_Cycle == "2") %>%
+#   filter(Strata == "UNDERSTORY1") %>%
+#   complete(Unit_Code, Sampling_Frame, Plot_Number, nesting(Code, Nativity),
+#            fill = list(pct_cov_sp = 0)) %>%
+#   group_by(Unit_Code, Sampling_Frame, Code, Nativity) %>%
+#   summarise(mean_cov_sp = mean(pct_cov_sp),
+#             n = n()) %>%
+#   ggplot(aes(area = mean_cov_sp, fill = Nativity, label = Code)) +
+#   geom_treemap() +
+#   geom_treemap_text(fontface = "italic", colour = "white", place = "centre",
+#                     grow = TRUE) +
+#   scale_fill_brewer(palette="Dark2")
+
+#........JITTER PLOT SPP  ----
+Spp_Cov_Chg %>%
+  mutate(code_lab = case_when(pct_cov_sp_chg <= -5 ~ Code,
+                              pct_cov_sp_chg >= 5 ~ Code,
+                              TRUE ~ "")) %>%
+  filter(pct_cov_sp_chg != 0) %>%
+  ggplot(aes(x = Plot_Number, y=pct_cov_sp_chg, 
+             color = Nativity, label = code_lab)) +
+  geom_jitter(width = 0.3) +
+  geom_text(size = 3, hjust=1, vjust=0) +
+  geom_hline(yintercept = 0) +
+  scale_color_brewer(palette="Dark2") +
+  facet_wrap(vars(Strata), dir = "v", scales = "free_x")
+
+# ........SLOPE PLOT ALL ----
+library(ggrepel)
+
+Spp_Slope <- Spp_Cov_Chg %>%
+  filter(`1` > 0 | `2` > 0) %>%
+  mutate(Plot = Plot_Number) %>%
+  mutate(Understory = str_sub(Strata,-1,-1)) %>%
+  mutate(Direction = case_when(pct_cov_sp_chg < 0 ~ "DECREASE",
+                               pct_cov_sp_chg >= 0  ~ "INCREASE")) %>%
+  mutate(code_lab = case_when(`1` >= 5 ~ Code,
+                              `2` >= 5 ~ Code,
+                              TRUE ~ "")) %>%
+  mutate(Direction = as.factor(Direction)) 
+
+
+ggplot(Spp_Slope) +
+  geom_segment(aes(x=1, xend=2, y=`1`, yend=`2`, 
+                   col=Nativity), size=.75, show.legend=T) + 
+  geom_vline(xintercept=1, linetype="dashed", size=.1) + 
+  geom_vline(xintercept=2, linetype="dashed", size=.1) +
+  labs(x="", y="% Cover") +  
+  xlim(.5, 2.5) + ylim(0,(1.1*(max(Spp_Slope$`1`, Spp_Slope$`2`)))) +
+  facet_grid(vars(Strata), vars(Plot), labeller = label_both) +
+  geom_text_repel(label=Spp_Slope$code_lab,
+                  y=Spp_Slope$`1`, x=rep(1, NROW(Spp_Slope)), hjust=1.1, size=3, direction = "y") +
+  geom_text(label="2010", x=1, y=1.1*(max(Spp_Slope$`1`, Spp_Slope$`2`)), hjust=1.2, size=4.5) +
+  geom_text(label="2015", x=2, y=1.1*(max(Spp_Slope$`1`, Spp_Slope$`2`)), hjust=-0.1, size=4.5) +
+  guides(color=guide_legend("")) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(axis.ticks = element_blank(),axis.text.x = element_blank()) +
+  scale_color_brewer(palette="Dark2") 
+
+# ........SLOPE PLOT = X ----
+
+Spp_Slope_X <- Spp_Cov_Chg %>%
+  filter(`1` > 0 | `2` > 0) %>%
+  mutate(Plot = Plot_Number) %>%
+  mutate(Understory = str_sub(Strata,-1,-1)) %>%
+  mutate(Direction = case_when(pct_cov_sp_chg < 0 ~ "DECREASE",
+                               pct_cov_sp_chg >= 0  ~ "INCREASE")) %>%
+  mutate(code_lab = case_when(`1` >= 5 ~ Code,
+                              `2` >= 5 ~ Code,
+                              TRUE ~ "")) %>%
+  mutate(Direction = as.factor(Direction)) %>%
+  filter(Plot_Number == "10" |
+           Plot_Number == "7" )
+#filter(Code == "CIBGLA")
+
+
+ggplot(Spp_Slope_X) +
+  geom_segment(aes(x=1, xend=2, y=`1`, yend=`2`, 
+                   col=Nativity), size=.75, show.legend=T) + 
+  geom_vline(xintercept=1, linetype="dashed", size=.1) + 
+  geom_vline(xintercept=2, linetype="dashed", size=.1) +
+  labs(x="", y="% Cover") +  
+  xlim(.5, 2.5) + ylim(0,(1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)))) +
+  facet_grid(vars(Strata), vars(Plot), labeller = label_both) +
+  geom_text_repel(label=Spp_Slope_X$code_lab,
+                  y=Spp_Slope_X$`1`, x=rep(1, NROW(Spp_Slope_X)), hjust=1.1, size=3, direction = "y") +
+  geom_text(label="2010", x=1, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=1.2, size=4.5) +
+  geom_text(label="2015", x=2, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=-0.1, size=4.5) +
+  guides(color=guide_legend("")) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(axis.ticks = element_blank(),axis.text.x = element_blank()) +
+  scale_color_brewer(palette="Dark2") 
+
+# ........SLOPE SP = X ----
+
+Spp_Slope_X <- Spp_Cov_Chg %>%
+  filter(`1` > 0 | `2` > 0) %>%
+  mutate(Plot = Plot_Number) %>%
+  mutate(Understory = str_sub(Strata,-1,-1)) %>%
+  mutate(Direction = case_when(pct_cov_sp_chg < 0 ~ "DECREASE",
+                               pct_cov_sp_chg >= 0  ~ "INCREASE")) %>%
+  mutate(code_lab = case_when(`1` >= 5 ~ Code,
+                              `2` >= 5 ~ Code,
+                              TRUE ~ "")) %>%
+  mutate(Direction = as.factor(Direction)) %>%
+  filter(Code == "METPOL1")
+
+
+ggplot(Spp_Slope_X) +
+  geom_segment(aes(x=1, xend=2, y=`1`, yend=`2`, 
+                   col=Direction), size=.75, show.legend=T) + 
+  geom_vline(xintercept=1, linetype="dashed", size=.1) + 
+  geom_vline(xintercept=2, linetype="dashed", size=.1) +
+  labs(x="", y="% Cover") +  
+  xlim(.5, 2.5) + ylim(0,(1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)))) +
+  facet_grid(vars(Strata), vars(Plot), labeller = label_both) +
+  geom_text_repel(label=Spp_Slope_X$code_lab,
+                  y=Spp_Slope_X$`1`, x=rep(1, NROW(Spp_Slope_X)), hjust=1.1, size=3, direction = "y") +
+  geom_text(label="2010", x=1, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=1.2, size=4.5) +
+  geom_text(label="2015", x=2, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=-0.1, size=4.5) +
+  guides(color=guide_legend("")) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(axis.ticks = element_blank(),axis.text.x = element_blank()) +
+  scale_color_manual(values = c("#CC0000", "#009900")) 
+
+#........TABLE DECLINES ----
+declines <- Spp_Cov_Stats %>%
+  filter(S_Cycle == "CHG") %>%
+  mutate(
+    chg_dir = case_when(
+      MEAN > 0 ~ "Increase",
+      MEAN < 0 ~ "Decrease",
+      MEAN == 0 ~ "No Change")) %>%
+  group_by(Unit_Code, Sampling_Frame, Strata, Nativity, chg_dir) %>%
+  summarize(chg_dir_count = n()) %>%
+  add_tally(chg_dir_count) %>%
+  mutate(pct_of_species = chg_dir_count/n)
+
+head(declines)
+
+
+#.-----------------------------------------------------
+# 5) Species Presence ----
+#.......................................................
+
+Spp_Pres <- Cover %>%
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number,
+           Nativity, Code, Name, Life_form) %>%
+  summarise(present = n_distinct(Name), .groups = 'drop') %>%
+  complete(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, 
+           nesting(Nativity, Code, Name, Life_form),
+           fill = list(present = 0)) %>%
+  group_by(S_Cycle, Unit_Code, Sampling_Frame,
+           Nativity, Code, Name, Life_form) %>%
+  summarise(plots_pres = sum(present), 
+            n = n(), .groups = 'drop')
+
+
+# ...Change ----
+
+Spp_Pres_Chg <- Spp_Pres %>%
+  pivot_wider(names_from = S_Cycle, values_from = plots_pres) %>%
+  mutate(presence_chg = round(`2` - `1`, 2)) %>%
+  mutate(prop_plts = presence_chg/n)
+
+#........POINT CHG SPP ----
+Spp_Pres_Chg %>%
+  ggplot(aes(Sampling_Frame, prop_plts, colour = Nativity)) + 
+  geom_hline(yintercept=0, linetype="dashed", 
+             color = "grey", size=1) +
+  geom_jitter(width = .3, size=1) +
+  #facet_grid(,vars(Strata)) + 
+  #geom_count() +
+  scale_colour_brewer(palette="Dark2") + 
+  labs(title="Change in Landscape Frequency", y="Change in proportion of Plots", x="Sampling Frame", caption="(each point represents one species)") +
+  guides(color=guide_legend("Plant Species")) 
+
+
+#........BAR CHG SPP ----
+Spp_Pres_Chg %>%
+  filter(presence_chg > 0 | presence_chg < 0) %>%
+  ggplot(aes(x = reorder(Name, presence_chg), presence_chg)) +   
+  geom_bar(aes(fill = Nativity), 
+           position = position_dodge2(width = 0.9, preserve = "single"), 
+           stat="identity") +
+  geom_hline(yintercept=0, linetype="solid", 
+             color = "black", size=0.5) +
+  scale_fill_brewer(palette="Dark2") +
+  labs(title="", y="Plots (Change in Understory Presence)", x="Species", caption= paste('(',Spp_Pres_Chg$n[1],' paired plots)', sep='')) +
+  guides(fill=guide_legend("")) +
+  scale_y_continuous(breaks = seq(min(Spp_Pres_Chg$presence_chg),
+                                  max(Spp_Pres_Chg$presence_chg), by = 1)) +  #spacebetween tick mark and tick label ('unit')
+  coord_flip() 
+
+  
+

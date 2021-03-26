@@ -285,8 +285,16 @@ Cover %>%
 #  filter(Nativity != "Unknown") 
 
 # If Nativity is wrong update here:
+
 Cover <- Cover %>%
-  mutate(Nativity=replace(Nativity, Name=="Epipremnum  sp.", "Non-Native")) 
+  #Non-natives:
+  mutate(Nativity=replace(Nativity, Name=="Epipremnum  sp.", "Non-Native")) %>%
+  mutate(Nativity=replace(Nativity, Name=="Stachytarpheta  sp.", "Non-Native")) %>%
+  #Natives:
+  mutate(Nativity=replace(Nativity, Name=="Hernandia  sp.", "Native")) %>%
+  mutate(Nativity=replace(Nativity, Name=="Ipomoea  sp.", "Native")) %>%
+  mutate(Nativity=replace(Nativity, Name=="Nephrolepis  sp.", "Native")) %>%
+  mutate(Nativity=replace(Nativity, Name=="Thelypteris sp.", "Native")) %>%
 
 # "Cover" ----
 # Dataset is ready for analysis

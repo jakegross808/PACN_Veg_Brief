@@ -96,17 +96,17 @@ add.stats <- function(.data, .summary_var, ...){
 #.......................................................
 
 list.files()
-list.files("FTPC_Export2")
+list.files("data/FTPC_Export2")
 
 # Select last folder in FTPC_Export
-DB_download <- tail(list.files("FTPC_Export2"), n=1)
+DB_download <- tail(list.files("data/FTPC_Export2"), n=1)
 print(DB_download)
 
 
 # Read tables
-Cover_High <- read_csv(here("FTPC_Export2", DB_download, "Species_coverage_High.csv"))
-Cover_Low <- read_csv(here("FTPC_Export2", DB_download, "Species_coverage_Low.csv"))
-Event <- read_csv(here("FTPC_Export2", DB_download, "Event.csv"))
+Cover_High <- read_csv(here("data/FTPC_Export2", DB_download, "Species_coverage_High.csv"))
+Cover_Low <- read_csv(here("data/FTPC_Export2", DB_download, "Species_coverage_Low.csv"))
+Event <- read_csv(here("data/FTPC_Export2", DB_download, "Event.csv"))
 
 table(Event$Plot_Type)
 levels(as.factor(Cover_Low$Plot_Type))
@@ -117,13 +117,13 @@ levels(as.factor(Cover_Low$Plot_Type))
 #.......................................................
 # User selected subsets
 levels(as.factor(Event$Unit_Code))
-uc <- "HALE"
+uc <- "AMME"
 
 levels(as.factor(Event$Community))
 c <- "All"
 
 levels(as.factor(Event$Sampling_Frame))
-sf <- "Subalpine Shrubland"
+sf <- "All"
 
 
 Event_filter <- site.filter(Event, uc, c, sf) %>%
@@ -271,13 +271,22 @@ Cover <- Cover %>%
 
 # Decide if it is appropriate or not to remove records that 
 # show Nativity == Unknown
-Cover_Fixed %>%
-  filter(Nativity == "Unknown")
 table(Cover$Nativity)
+
+# Display "Unknown" Nativity species
+Cover %>%
+  filter(Nativity == "Unknown") %>%
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, Code, Name) %>%
+  summarise(n = n())
+
 
 # Remove if needed...
 # Cover <- Cover %>%  
 #  filter(Nativity != "Unknown") 
+
+# If Nativity is wrong update here:
+Cover <- Cover %>%
+  mutate(Nativity=replace(Nativity, Name=="Epipremnum  sp.", "Non-Native")) 
 
 # "Cover" ----
 # Dataset is ready for analysis

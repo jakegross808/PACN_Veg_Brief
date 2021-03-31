@@ -236,15 +236,17 @@ Tree_Slope_X <- trees_Chg %>%
   #filter(`1` > 0 | `2` > 0) %>%
   #mutate(Plot = Plot_Number) %>%
   #mutate(Understory = str_sub(Strata,-1,-1)) %>%
-  mutate(Direction = case_when(Trees_ha_chg < 0 ~ "DECREASE",
-                               Trees_ha_chg >= 0  ~ "INCREASE")) %>%
+  mutate(Direction = case_when(Trees_ha_chg <= 0 ~ "DECREASE",
+                               Trees_ha_chg > 0  ~ "INCREASE")) %>%
   #mutate(code_lab = case_when(`1` >= 5 ~ Code,
   #                            `2` >= 5 ~ Code,
   #                            TRUE ~ "")) %>%
   mutate(Direction = as.factor(Direction)) 
 
+library(ggrepel)
+
 Tree_Slope_X %>%
-  mutate(Size = fct_relevel(Size, ">10","5<10","1<5")) %>%
+  mutate(Diameter = fct_relevel(Size, ">10","5<10","1<5")) %>%
   ggplot() +
   geom_segment(aes(x=1, xend=2, y=`1`, yend=`2`, 
                    col=Direction), size=.75, show.legend=T) + 
@@ -265,7 +267,21 @@ Tree_Slope_X %>%
 
 
 
-
+Tree_Slope_X %>%
+  mutate(DBH = fct_relevel(Size, ">10","5<10","1<5")) %>%
+  ggplot() +
+  geom_segment(aes(x=1, xend=2, y=`1`, yend=`2`, 
+                   col=Direction), size=.75, show.legend=T) + 
+  facet_grid(vars(DBH), vars(Plot), scales = "free", labeller = label_both) +
+  theme(panel.spacing = unit(1, "lines")) +
+  guides(color=guide_legend("")) +
+  theme(panel.grid.minor = element_blank()) +
+  theme(legend.position = "none") +
+  ggtitle(expression(italic("Bruguiera  gymnorrhiza"))) +
+  xlab("Year") + ylab("Trees / ha") +
+  scale_x_continuous("Year", breaks = c(1,2), label = c("2014","2019")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  scale_color_manual(values = c("#333333", "#1B9E77")) # Non-native color = "#D95F02"
 
 
 

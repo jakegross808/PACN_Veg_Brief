@@ -220,12 +220,29 @@ name_code <- Cover_Fixed %>%
   summarize(n = n())
 
 # # If IDs are uncertain for some species lump by "Code" here:
-# Cover <- Cover %>%
-#   mutate(Life_form=replace(Life_form, Code=="CIBSP.", "Tree Fern")) %>%
-#   mutate(Code=replace(Code, Code=="CIBCHA", "CIBGLA")) %>%
-#   mutate(Name=replace(Name, Name=="Cibotium  chamissoi", "Cibotium  glaucum")) %>%
-#   mutate(Code=replace(Code, Code=="CIBSP.", "CIBGLA")) %>%
-#   mutate(Name=replace(Name, Name=="Cibotium  sp.", "Cibotium  glaucum")) 
+Cover <- Cover %>%
+  # Lifeforms:
+  #mutate(Life_form=replace(Life_form, Code=="CIBSP.", "Tree Fern")) %>%
+  
+  # Species:
+  # Epipremnum pinnatum is accepted name ITIS, Bishop, and is introduced/naturalized (cultivar Aureum which originated in the Solomon Islands? (Wagner))  
+  mutate(Code=replace(Code, Code=="EPISP.", "EPIPIN")) %>%
+  mutate(Name=replace(Name, Name=="Epipremnum  sp.", "Epipremnum pinnatum")) %>%
+  # The majority of Mucuna sp. is likely 'M. ginantea', but other spp. are possible. 
+  mutate(Code=replace(Code, Code=="MUCSPP", "MUCGIG2")) %>%
+  mutate(Name=replace(Name, Name=="Mucuna  gigantea", "Mucuna  sp.")) %>%
+  # The majority of Ipomoea sp. is likely 'I. violacea', but other spp. are possible. 
+  mutate(Code=replace(Code, Code=="IPOVIO", "IPOSP.")) %>%
+  mutate(Name=replace(Name, Name=="Ipomoea  violacea", "Ipomoea  sp.")) %>%
+  # The majority of Ficus sp. is likely 'F. prolixa' & 'F.tinctoria, but other spp. are possible. 
+  mutate(Code=replace(Code, Code=="FICPRO", "FICSP.")) %>%
+  mutate(Name=replace(Name, Name=="Ficus  prolixa", "	Ficus  sp.")) %>%
+  mutate(Code=replace(Code, Code=="FICTIN1", "FICSP.")) %>%
+  mutate(Name=replace(Name, Name=="Ficus  tinctoria", "	Ficus  sp.")) %>%
+  # The majority of Nephrolepis sp. is likely 'N. hirsutula', but other spp. are possible. 
+  mutate(Code=replace(Code, Code=="NEPHIR", "NEPSP.")) %>%
+  mutate(Name=replace(Name, Name=="Nephrolepis  hirsutula", "Nephrolepis  sp.")) 
+  
 #   
 # Cover <- Cover %>%
 #   mutate(Code=replace(Code, Code=="SADSOU", "SADSP.")) %>%
@@ -288,13 +305,15 @@ Cover %>%
 
 Cover <- Cover %>%
   #Non-natives:
-  mutate(Nativity=replace(Nativity, Name=="Epipremnum  sp.", "Non-Native")) %>%
+  mutate(Nativity=replace(Nativity, Name=="Epipremnum pinnatum", "Non-Native")) %>%
   mutate(Nativity=replace(Nativity, Name=="Stachytarpheta  sp.", "Non-Native")) %>%
   #Natives:
   mutate(Nativity=replace(Nativity, Name=="Hernandia  sp.", "Native")) %>%
   mutate(Nativity=replace(Nativity, Name=="Ipomoea  sp.", "Native")) %>%
   mutate(Nativity=replace(Nativity, Name=="Nephrolepis  sp.", "Native")) %>%
   mutate(Nativity=replace(Nativity, Name=="Thelypteris sp.", "Native")) %>%
+  mutate(Nativity=replace(Nativity, Name=="Mucuna  sp.", "Native")) %>%
+  mutate(Nativity=replace(Nativity, Name=="Ficus  sp.", "Native"))
 
 # "Cover" ----
 # Dataset is ready for analysis

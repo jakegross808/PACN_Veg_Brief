@@ -33,22 +33,22 @@ library(tidyverse)
 #.......................................................
 
 # list database exports available in folder "FTPC_Export". 
-list.files("FTPC_Export")
+list.files("data/FTPC_Export")
 #' If function returns *character(0)*, then folder 'FTPC_Export' is empty or 
 #' missing, and the rest of the script will not work. To fix, first run 
 # script (01_FTPC_DB_YYYYMMDD.R) within project folder. 
 
 # select latest (last) FTPC export
-DB_download <- tail(list.files("FTPC_Export"), n=1) 
+DB_download <- tail(list.files("data/FTPC_Export"), n=1) 
 ##DB_download <- "FTPC_2020-04-09_1633" # option to manually select folder
 print(DB_download) # print version being used
 
 
 
 # Data Tables to Load
-Large_tree <- read_csv(here("FTPC_Export", DB_download, "Lg_Trees.csv"))
+Large_tree <- read_csv(here("data/FTPC_Export", DB_download, "Lg_Trees.csv"))
 ##sPresent <- read_csv(here("FTPC_Export", DB_download,"Presence.csv"))
-Event <- read_csv(here("FTPC_Export", DB_download,"Event.csv"))
+Event <- read_csv(here("data/FTPC_Export", DB_download,"Event.csv"))
 
 
 
@@ -585,7 +585,7 @@ p
 #
 # LIVE Tree Count 
 #
-Lg_tree_spp <- Lg_tree_sub %>%
+Lg_tree_spp <- Lg_tree %>%
   mutate(Plot = Plot_Number) %>%
   filter(Status == "Live") %>%
   #filter(Plot_Number == 1) %>%
@@ -635,7 +635,7 @@ p
 #
 # Dead Tree Count 
 #
-Lg_tree_spp_d <- Lg_tree_sub %>%
+Lg_tree_spp_d <- Lg_tree %>%
   mutate(Plot = Plot_Number) %>%
   filter(Status == "Dead") %>%
   #filter(Plot_Number == 1) %>%
@@ -667,7 +667,7 @@ p
 #
 # LIVE Tree Count 
 #
-Lg_tree_sp <- Lg_tree_sub %>%
+Lg_tree_sp <- Lg_tree %>%
   filter(Status == "Live") %>%
   filter(Code == "BRUGYM") %>% # Pick individual Species (ex. BRUGYM)
   group_by(S_Year, S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, 
@@ -692,7 +692,7 @@ ggsave(here("figs", "BRUGYM_Large_Tree_Sp_Count.png"))
 #
 # DEAD Tree Count
 #
-Lg_tree_sp_d <- Lg_tree_sub %>%
+Lg_tree_sp_d <- Lg_tree %>%
   filter(Status == "Dead") %>%
   filter(Code == "BRUGYM") %>%
   group_by(S_Year, S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, 
@@ -722,10 +722,10 @@ ggsave(here("figs", "BRUGYM_Large_Tree_Sp_Count_Dead.png"))
 
 
 
-Tree_count_spp1 <- Lg_tree_spp %>%
+Tree_count_spp1 <- Lg_tree %>%
   filter(S_Cycle == 1)
 
-Tree_count_spp2 <- Lg_tree_spp %>%
+Tree_count_spp2 <- Lg_tree %>%
   filter(S_Cycle == 2) %>%
   full_join(Tree_count_spp1, by = c("Unit_Code", "Sampling_Frame", "Plot"
                                     #"Quad", 

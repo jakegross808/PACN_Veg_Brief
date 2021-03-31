@@ -215,7 +215,7 @@ table(Cover_Fixed$Code)
 table(Cover_Fixed$Name)
 
 # Get unique names
-name_code <- Cover_Fixed %>%
+name_code <- Cover %>%
   group_by(Nativity, Name, Code, Life_form) %>%
   summarize(n = n())
 
@@ -236,9 +236,9 @@ Cover <- Cover %>%
   mutate(Name=replace(Name, Name=="Ipomoea  violacea", "Ipomoea  sp.")) %>%
   # The majority of Ficus sp. is likely 'F. prolixa' & 'F.tinctoria, but other spp. are possible. 
   mutate(Code=replace(Code, Code=="FICPRO", "FICSP.")) %>%
-  mutate(Name=replace(Name, Name=="Ficus  prolixa", "	Ficus  sp.")) %>%
+  mutate(Name=replace(Name, Name=="Ficus  prolixa", "Ficus  sp.")) %>%
   mutate(Code=replace(Code, Code=="FICTIN1", "FICSP.")) %>%
-  mutate(Name=replace(Name, Name=="Ficus  tinctoria", "	Ficus  sp.")) %>%
+  mutate(Name=replace(Name, Name=="Ficus  tinctoria", "Ficus  sp.")) %>%
   # The majority of Nephrolepis sp. is likely 'N. hirsutula', but other spp. are possible. 
   mutate(Code=replace(Code, Code=="NEPHIR", "NEPSP.")) %>%
   mutate(Name=replace(Name, Name=="Nephrolepis  hirsutula", "Nephrolepis  sp.")) 
@@ -492,6 +492,19 @@ Nat_Cov %>%
   scale_x_reordered() +
   xlab("Plot Number")
 
+#........STRIP CHRT PAIR -----
+Nat_Cov %>%
+  #mutate(Status = fct_rev(Status)) %>%
+  ggplot(aes(x=S_Cycle, y=tot_pct_cov, group=Plot_Number)) +
+  geom_line(size=1, alpha=0.5, position=position_dodge(width=0.2)) +
+  geom_point(position=position_dodge(width=0.2)) +
+  xlab('Sample Cycle') +
+  ylab('Total % Cover') +
+  #scale_fill_brewer(palette="Accent") +
+  #scale_color_brewer(palette="Accent") + 
+  #theme_bw() +
+  facet_grid(cols = vars(Nativity), rows = vars(Strata))
+
 # ...Change ----
 
 # Calculate Change in Total Percent Cover for Native & Non-Native Frequency
@@ -557,6 +570,7 @@ Nat_Cov_Stats <- add.stats(
 
 #........BAR YEARLY MEANS----
 Nat_Cov_Stats %>%
+  filter(Nativity != "Unknown") %>%
   ggplot(aes(x = S_Cycle, y = MEAN, fill = Nativity)) +
   geom_col(position = position_dodge()) +
   geom_errorbar(aes(ymin=L, ymax=R), width=.2,
@@ -568,6 +582,7 @@ Nat_Cov_Stats %>%
 
 #........BAR CHG----
 Nat_Cov_Stats %>%
+  filter(Nativity != "Unknown") %>%
   filter(S_Cycle == "CHG") %>%
   ggplot(aes(x = S_Cycle, y = MEAN, fill = Nativity)) +
   geom_col(position = position_dodge()) +
@@ -954,7 +969,7 @@ Spp_Slope_X <- Spp_Cov_Chg %>%
                               `2` >= 5 ~ Code,
                               TRUE ~ "")) %>%
   mutate(Direction = as.factor(Direction)) %>%
-  filter(Code == "METPOL1")
+  filter(Code == "BRUGYM")
 
 
 ggplot(Spp_Slope_X) +
@@ -967,8 +982,8 @@ ggplot(Spp_Slope_X) +
   facet_grid(vars(Strata), vars(Plot), labeller = label_both) +
   geom_text_repel(label=Spp_Slope_X$code_lab,
                   y=Spp_Slope_X$`1`, x=rep(1, NROW(Spp_Slope_X)), hjust=1.1, size=3, direction = "y") +
-  geom_text(label="2010", x=1, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=1.2, size=4.5) +
-  geom_text(label="2015", x=2, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=-0.1, size=4.5) +
+  geom_text(label="2014", x=1, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=1.2, size=4.5) +
+  geom_text(label="2019", x=2, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=-0.1, size=4.5) +
   guides(color=guide_legend("")) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
   theme(axis.ticks = element_blank(),axis.text.x = element_blank()) +

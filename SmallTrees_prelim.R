@@ -209,15 +209,72 @@ trees <- Sm_Trees_pp %>%
   bind_rows(ltrees)
 
 trees %>%
+  mutate(Size = fct_relevel(Size, ">10","5<10","1<5")) %>%
   ggplot(aes(x=Plot, y=Trees_ha, fill=S_Cycle)) +
   geom_bar(stat="identity", position = position_dodge2(preserve = "single", padding = 0))+
-  geom_text(aes(label=Trees_ha), vjust=1.6, color="white",
-            position = position_dodge(0.9), size=3.5)+
+  #geom_text(aes(label=Trees_ha), vjust=1.6, color="white",
+  #          position = position_dodge(0.9), size=3.5)+
   scale_fill_brewer(palette="Paired") + #"Paired"
   #scale_fill_manual(values = c("#736F6E", "#000000")) +
-  facet_grid(vars(Size)) +
+  facet_grid(vars(Size), scales = "free") +
   labs(title="Bruguiera gymnorrhiza",
-       x ="Plot", y = "Count", fill = "Cycle") 
+       x ="Plot", y = "Trees / ha", fill = "Cycle") 
+
+
+# Change ----
+trees_Chg <- trees %>%
+  ungroup() %>%
+  #group_by("Unit_Code", "Sampling_Frame","Plot_Number","Nativity") %>%
+  complete(S_Cycle, # Complete a data frame with missing combinations of factors 
+           # nesting = find only the combinations that occur in the selected factors
+           Sampling_Frame, Plot, Name, Code, Size,  
+           fill = list(Trees_ha = 0)) %>%
+  pivot_wider(names_from = S_Cycle, values_from = Trees_ha) %>%
+  mutate(Trees_ha_chg = round(`2` - `1`, 2))
+
+Tree_Slope_X <- trees_Chg %>%
+  #filter(`1` > 0 | `2` > 0) %>%
+  #mutate(Plot = Plot_Number) %>%
+  #mutate(Understory = str_sub(Strata,-1,-1)) %>%
+  mutate(Direction = case_when(Trees_ha_chg < 0 ~ "DECREASE",
+                               Trees_ha_chg >= 0  ~ "INCREASE")) %>%
+  #mutate(code_lab = case_when(`1` >= 5 ~ Code,
+  #                            `2` >= 5 ~ Code,
+  #                            TRUE ~ "")) %>%
+  mutate(Direction = as.factor(Direction)) 
+
+Tree_Slope_X %>%
+  mutate(Size = fct_relevel(Size, ">10","5<10","1<5")) %>%
+  ggplot() +
+  geom_segment(aes(x=1, xend=2, y=`1`, yend=`2`, 
+                   col=Direction), size=.75, show.legend=T) + 
+  geom_vline(xintercept=1, linetype="dashed", size=.1) + 
+  geom_vline(xintercept=2, linetype="dashed", size=.1) +
+  labs(x="", y="% Cover") +  
+  xlim(.5, 2.5) + ylim(0,(1.1*(max(Tree_Slope_X$`1`, Tree_Slope_X$`2`)))) +
+  facet_grid(vars(Size), vars(Plot), scales = "free", labeller = label_both) +
+  geom_text_repel(label=Tree_Slope_X$Code,
+                  y=Tree_Slope_X$`1`, x=rep(1, NROW(Tree_Slope_X)), hjust=1.1, size=3, direction = "y") +
+  geom_text(label="2014", x=1, y=1.1*(max(Tree_Slope_X$`1`, Tree_Slope_X$`2`)), hjust=1.2, size=4.5) +
+  geom_text(label="2019", x=2, y=1.1*(max(Tree_Slope_X$`1`, Tree_Slope_X$`2`)), hjust=-0.1, size=4.5) +
+  guides(color=guide_legend("")) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(axis.ticks = element_blank(),axis.text.x = element_blank()) +
+  scale_color_manual(values = c("#CC0000", "#009900"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

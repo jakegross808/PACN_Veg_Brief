@@ -96,17 +96,17 @@ add.stats <- function(.data, .summary_var, ...){
 #.......................................................
 
 list.files()
-list.files("data/FTPC_Export2")
+list.files("data/FTPC_Export")
 
 # Select last folder in FTPC_Export
-DB_download <- tail(list.files("data/FTPC_Export2"), n=1)
+DB_download <- tail(list.files("data/FTPC_Export"), n=1)
 print(DB_download)
 
 
 # Read tables
-Cover_High <- read_csv(here("data/FTPC_Export2", DB_download, "Species_coverage_High.csv"))
-Cover_Low <- read_csv(here("data/FTPC_Export2", DB_download, "Species_coverage_Low.csv"))
-Event <- read_csv(here("data/FTPC_Export2", DB_download, "Event.csv"))
+Cover_High <- read_csv(here("data/FTPC_Export", DB_download, "Species_coverage_High.csv"))
+Cover_Low <- read_csv(here("data/FTPC_Export", DB_download, "Species_coverage_Low.csv"))
+Event <- read_csv(here("data/FTPC_Export", DB_download, "Event.csv"))
 
 table(Event$Plot_Type)
 levels(as.factor(Cover_Low$Plot_Type))

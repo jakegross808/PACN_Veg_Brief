@@ -353,13 +353,37 @@ Spp_Dens_Chg_Slope %>%
   scale_color_manual(values = c("#333333", "#1B9E77")) # Non-native color = "#D95F02"
 
 
+# Summary Stats ----
+
+# Use custom function at top of script to add stats to dataset
+Spp_Dens_Stats <- add.stats(
+  .data =  Spp_Dens_Chg,
+  .summary_var = count_ha_chg,
+  Sampling_Frame, Size)
 
 
+# ....... BAR TOTAL MEANS ----
+
+Spp_Dens_Stats %>%
+  #filter(S_Cycle != "CHG") %>%
+  ggplot(aes(x = S_Cycle, y = MEAN, fill = S_Cycle)) +
+  geom_bar(stat="identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin=L, ymax=R), width=.2,
+                position=position_dodge(.9)) +
+  labs(y = "Live trees per ha", x = "Sample Cycle") +
+  scale_fill_brewer(palette="Accent") +
+  facet_grid(rows = vars(Sampling_Frame), cols = vars(Size), scales = "free")
 
 
-
-
-
+#........JITTER PLOT ----
+# Total Cover Change jitter plot
+Spp_Dens_Chg %>%
+  ggplot(aes(x =Sampling_Frame, y = count_ha_chg)) +
+  geom_jitter(width = 0.05) +
+  geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
+  stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
+  labs(x = "Sampling Frame", y = "Change in % Cover") +
+  facet_wrap(vars(Size), dir = "h", scales = "free") 
 
 
 

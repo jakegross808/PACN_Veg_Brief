@@ -212,7 +212,7 @@ Seedling_Fixed <- plots_f_match %>%
 
 # Prep datasets before merging (row bind)
 Lg_Trees_Select <- Lg_Trees_Fixed %>%
-  select(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, Life_Form, Quad, 
+  select(S_Cycle, S_Year, Unit_Code, Sampling_Frame, Plot_Number, Life_Form, Quad, 
          Status, Height, Height_Dead, Boles, DBH, DBH_Basal, Vigor, Fruit_Flower, 
          Rooting, Shrublike_Growth, Resprouts, Code, Name, Nativity) %>%
   mutate(Size = ">10") %>%
@@ -234,7 +234,12 @@ Trees_Select <- Lg_Trees_Select %>%
   mutate(Plot = as.factor(Plot_Number)) %>%
   mutate(S_Cycle = as.factor(S_Cycle)) %>%
   select(-Plot_Number) %>%
-  mutate(Size = fct_relevel(Size, ">10","5<10","1<5", "<1"))
+  mutate(Size = fct_relevel(Size, ">10","5<10","1<5", "<1")) %>%
+  mutate(Life_Form = case_when(Size == "<1" ~ "Seedlings",
+                             Size == "1<5" ~ "Small Trees",
+                             Size == "5<10" ~ "Medium Trees",
+                             Size == ">10" ~ "Large Trees")) %>%
+  mutate(Life_Form = fct_relevel(Life_Form, "Large Trees","Medium Trees","Small Trees", "Seedlings"))
 
 table(Trees_Select$Life_Form)
 
@@ -289,12 +294,13 @@ Spp_Dens <- Trees %>%
   #'*Check if should include Dead trees or not!* 
   filter(Status == "Live") %>%
   filter(Code == "BRUGYM") %>%
-  group_by(S_Cycle, Sampling_Frame, Plot, Life_Form, Size, Status, Code, Name) %>%
+  group_by(S_Cycle, S_Year, Sampling_Frame, Plot, Life_Form, Size, Status, Code, Name) %>%
   summarise(count_pp = sum(Count)) %>%
   # Calculate trees per ha for each size category
-  mutate(count_ha = case_when(Life_Form == "Seedling" ~ count_pp*100,
-                              Life_Form == "Small Tree" ~ count_pp*40,
-                              Life_Form == "Large Tree" ~ count_pp*10
+  mutate(count_ha = case_when(Life_Form == "Seedlings" ~ count_pp*100,
+                              Life_Form == "Small Trees" ~ count_pp*40,
+                              Life_Form == "Medium Trees" ~ count_pp*40,
+                              Life_Form == "Large Trees" ~ count_pp*10
                               )) %>%
   droplevels()
 
@@ -305,7 +311,7 @@ Spp_Dens %>%
             position = position_dodge(0.9), size=3.5)+
   scale_fill_brewer(palette="Paired") + #"Paired"
   #scale_fill_manual(values = c("#736F6E", "#000000")) +
-  facet_grid(vars(Size), scales = "free") +
+  facet_grid(vars(Life_Form), scales = "free") +
   labs(title="Bruguiera gymnorrhiza",
        x ="Plot", y = "Trees / ha", fill = "Cycle") 
 
@@ -314,15 +320,22 @@ Spp_Dens %>%
 
 # Change ----
 Spp_Dens_Chg <- Spp_Dens %>%
-  select(-count_pp) %>%
   ungroup() %>%
-  #group_by("Unit_Code", "Sampling_Frame","Plot_Number","Nativity") %>%
+  select(-count_pp, -S_Year) %>%
   complete(S_Cycle, # Complete a data frame with missing combinations of factors 
            # nesting = find only the combinations that occur in the selected factors
            Sampling_Frame, Name, Code, nesting(Life_Form, Size), Plot, Status,
            fill = list(count_ha = 0)) %>%
   pivot_wider(names_from = S_Cycle, values_from = count_ha) %>%
-  mutate(count_ha_chg = round(`2` - `1`, 2))
+  mutate(count_ha_chg = round(`2` - `1`, 2)) 
+
+Spp_Dens_Chg_range <- Spp_Dens_Chg %>%
+  group_by(Sampling_Frame, Name, Life_Form, Size) %>%
+  summarize(y_range = max(abs(count_ha_chg))) %>%
+  ungroup()
+  
+Spp_Dens_Chg <- Spp_Dens_Chg %>%
+  inner_join(Spp_Dens_Chg_range)
 
 Spp_Dens_Chg_Slope <- Spp_Dens_Chg %>%
   #filter(`1` > 0 | `2` > 0) %>%
@@ -341,7 +354,8 @@ Spp_Dens_Chg_Slope %>%
   ggplot() +
   geom_segment(aes(x=1, xend=2, y=`1`, yend=`2`, 
                    col=Direction), size=.75, show.legend=T) + 
-  facet_grid(vars(Size), vars(Plot), scales = "free", labeller = label_both) +
+  facet_grid(Life_Form ~ Plot, scales = "free", 
+             labeller = labeller(Plot = label_both, Life_Form = label_value)) +
   theme(panel.spacing = unit(1, "lines")) +
   guides(color=guide_legend("")) +
   theme(panel.grid.minor = element_blank()) +
@@ -359,7 +373,7 @@ Spp_Dens_Chg_Slope %>%
 Spp_Dens_Stats <- add.stats(
   .data =  Spp_Dens_Chg,
   .summary_var = count_ha_chg,
-  Sampling_Frame, Size)
+  Sampling_Frame, Life_Form)
 
 
 # ....... BAR TOTAL MEANS ----
@@ -372,18 +386,154 @@ Spp_Dens_Stats %>%
                 position=position_dodge(.9)) +
   labs(y = "Live trees per ha", x = "Sample Cycle") +
   scale_fill_brewer(palette="Accent") +
-  facet_grid(rows = vars(Sampling_Frame), cols = vars(Size), scales = "free")
+  facet_wrap(vars(Life_Form), scales = "free")
 
 
 #........JITTER PLOT ----
 # Total Cover Change jitter plot
-Spp_Dens_Chg %>%
+p2 <- Spp_Dens_Chg %>%
+  ggplot(aes(x =Sampling_Frame, y = count_ha_chg)) +
+  geom_blank(aes(y = y_range)) +
+  geom_blank(aes(y = -y_range)) +
+  geom_jitter(width = 0.05) +
+  geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
+  stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
+  labs(y = "Change (trees / ha)") +
+  facet_wrap(vars(Life_Form), nrow = 1, scales = "free") +
+  #scale_y_continuous(limits=c(min(Spp_Dens_Chg$count_ha_chg), max(Spp_Dens_Chg$count_ha_chg))) +
+  #scale_y_continuous(limits=c(min(-Spp_Dens_Chg$y_range), 
+  #                            max(Spp_Dens_Chg$y_range))) +
+  theme(axis.title.x=element_blank(),
+      axis.text.x=element_blank(),
+      axis.ticks.x=element_blank())
+p2
+
+
+p2 <- Spp_Dens_Chg %>%
+  filter(Life_Form == "Large Trees") %>%
   ggplot(aes(x =Sampling_Frame, y = count_ha_chg)) +
   geom_jitter(width = 0.05) +
   geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
   stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
-  labs(x = "Sampling Frame", y = "Change in % Cover") +
-  facet_wrap(vars(Size), dir = "h", scales = "free") 
+  labs(y = "Change (trees / ha)") +
+  facet_wrap(vars(Life_Form), nrow = 1, scales = "free") +
+  scale_y_continuous(limits=c(min(-Spp_Dens_Chg$y_range), 
+                              max(Spp_Dens_Chg$y_range))) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+p2
+
+
+# Make list of variable names to loop over.
+var_list = unique(Spp_Dens_Chg$Life_Form)
+
+# Make plots.
+for (i in var_list) {
+  temp_plot = ggplot(data= subset(Spp_Dens_Chg, Life_Form == i),
+           aes(x =Sampling_Frame, y = count_ha_chg)) +
+    geom_jitter(width = 0.05) +
+    geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
+    stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
+    labs(y = "") +
+    #facet_wrap(vars(Life_Form), nrow = 1, scales = "free") +
+    #scale_y_continuous(limits=c(min(Spp_Dens_Chg$count_ha_chg), max(Spp_Dens_Chg$count_ha_chg))) +
+    theme(axis.title.x=element_blank(),
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank()) +
+    ggtitle(i)
+  ggsave(temp_plot, file=paste0("plot_", i,".png"), width = 14, height = 10, units = "cm")
+}
+
+plist <- list()
+for (i in var_list) {
+  temp_plot = ggplot(data= subset(Spp_Dens_Chg, Life_Form == i),
+                     aes(x =Sampling_Frame, y = count_ha_chg)) +
+    geom_jitter(width = 0.05) +
+    geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
+    stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
+    labs(y = "") +
+    #facet_wrap(vars(Life_Form), nrow = 1, scales = "free") +
+    #scale_y_continuous(limits=c(min(Spp_Dens_Chg$count_ha_chg), max(Spp_Dens_Chg$count_ha_chg))) +
+    theme(axis.title.x=element_blank(),
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank()) 
+    #ggtitle(i)
+  plist[[i]] <- temp_plot
+  #ggsave(temp_plot, file=paste0("plot_", i,".png"), width = 14, height = 10, units = "cm")
+}
+
+grid.arrange(grobs = plist, nrow = 1, top = "Bruguiera  gymnorrhiza")
+
+
+for (i in temp_plot) {
+  ggplot(temp_plot[[i]])
+
+
+plotserieslines <- function(Spp_Dens_Chg$Life_Form){
+  ggplot(Spp_Dens_Chg, aes_(x=~Sampling_Frame,y=count_ha_chg)) +
+    geom_jitter(width = 0.05) +
+    geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
+    stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
+    labs(y = "Change (trees / ha)") #+
+    #facet_wrap(~Life_Form)
+}
+lapply(sort(Spp_Dens_Chg$Life_Form), plotserieslines)
+
+
+p2.1 = lapply(sort(unique(Spp_Dens_Chg$Life_Form)), function(i) {
+  
+  p = ggplot(Spp_Dens_Chg[Spp_Dens_Chg$Life_Form==i, ], aes(Sampling_Frame, count_ha_chg)) + 
+    facet_wrap(~Life_Form) +
+    geom_jitter(width = 0.05) +
+    geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
+    stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
+    labs(y = "Change (trees / ha)") +
+    #scale_y_continuous(limits=c(ifelse(i==4, 10, 0), 1.1 * max(mtcars$mpg[mtcars$cyl==i])),
+    #                   breaks=pretty_breaks(ifelse(i==6, 6, 3))) +
+    #scale_x_continuous(limits=range(mtcars$wt)) +
+    theme(plot.margin=unit(c(0, 0.1, 0, -1),"lines"))
+  
+  # Remove x-axis labels and title except for last plot
+  #if(i < max(mtcars$cyl)) p = p + theme(axis.text.x=element_blank(),
+  #                                      axis.title.x=element_blank())
+  
+  return(p)
+})
+
+grid.arrange(textGrob("MPG", rot=90), plot_grid(plotlist=p2.1, ncol=1, align="h"), 
+             widths=c(0.03,0.97), ncol=2)
+
+
+
+#........STRIP CHRT PAIR -----
+p1 <- Spp_Dens %>%
+  select(-count_pp) %>%
+  ungroup() %>%
+  mutate(S_Year = as.factor(S_Year)) %>%
+  complete(nesting(S_Cycle, S_Year), # Complete a data frame with missing combinations of factors 
+           # nesting = find only the combinations that occur in the selected factors
+           Sampling_Frame, Name, Code, nesting(Life_Form, Size), Plot, Status,
+           fill = list(count_ha = 0)) %>%
+  ggplot(aes(x=S_Year, y=count_ha, group=Plot)) +
+  geom_line(size=1, alpha=0.5, position=position_dodge(width=0.2)) +
+  geom_point(position=position_dodge(width=0.2)) +
+  xlab('') +
+  ylab('Live trees / ha') +
+  #scale_fill_brewer(palette="Accent") +
+  #scale_color_brewer(palette="Accent") + 
+  #theme_bw() +
+  facet_wrap(vars(Life_Form), scales = "free", nrow = 1)
+p1
+
+#install.packages("gridExtra")
+#library(gridExtra)
+
+grid.arrange(p1, p2, nrow = 2, top = "Bruguiera  gymnorrhiza", 
+             heights = c(2, 1.5))
+
+
+
 
 
 

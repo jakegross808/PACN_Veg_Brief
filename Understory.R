@@ -581,7 +581,7 @@ Nat_Cov_Stats %>%
 
 
 #........BAR CHG----
-Nat_Cov_Stats %>%
+ncs <- Nat_Cov_Stats %>%
   filter(Nativity != "Unknown") %>%
   filter(S_Cycle == "CHG") %>%
   ggplot(aes(x = S_Cycle, y = MEAN, fill = Nativity)) +
@@ -681,8 +681,9 @@ Nat_Rich_Stats %>%
   scale_fill_brewer(palette="Dark2") 
 
 #........BAR CHG----
-Nat_Rich_Stats %>%
+nrs <- Nat_Rich_Stats %>%
   filter(S_Cycle == "CHG") %>%
+  filter(Nativity != "Unknown") %>%
   ggplot(aes(x = S_Cycle, y = MEAN, fill = Nativity)) +
   geom_col(position = position_dodge()) +
   geom_errorbar(aes(ymin=L, ymax=R), width=.2,
@@ -695,8 +696,147 @@ Nat_Rich_Stats %>%
         axis.ticks.x=element_blank())
 ggsave(here("figures", "bar_mean_nat_rich_chg.png")) 
 
+grid.arrange(ncs, nrs, nrow = 1)
+
 #.-----------------------------------------------------
-# 4) Species % Cover ----
+# 4) Lifeform Total % cover ----
+#.......................................................
+
+# Can Total Greater Than 100%
+
+# Calculate Total Percent Cover for Native vs. Non-native
+Forms_Cov <- Cover %>%
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, 
+           Transect, Point, Strata, Nativity, Life_form) %>%
+  # Count hits at each cover point:
+  summarise(Hits_All_Forms = n(), .groups = 'drop')  %>%
+  # But don't count record if entire plot had no hits: (e.g. transect is NA )
+  mutate(Hits_All_Forms = replace(Hits_All_Forms, is.na(Transect), 0)) %>%
+  # group by plot (i.e. remove Transect and Point from grouping variable)
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, Strata, Nativity, Life_form) %>%
+  #Total hits at each point for each strata for entire plot 
+  # (can be > 300 points or >100%)
+  summarise(tot_pct_cov = (sum(Hits_All_Forms)) / 300 * 100, .groups = 'drop')
+
+#  ........ BAR COV/PLOT----
+Forms_Cov %>%
+  ggplot(aes(x = reorder_within(Plot_Number, -tot_pct_cov, within = Life_form), 
+             y = tot_pct_cov, fill = S_Cycle)) +
+  geom_bar(stat="identity", position = position_dodge()) +
+  scale_fill_brewer(palette="Accent") +
+  facet_grid(rows = vars(Strata), cols = vars(Life_form), scales = "free") +
+  #facet_wrap(vars(Strata), dir = "v", scales = "free_x") +
+  scale_x_reordered() +
+  xlab("Plot Number")
+
+
+# ...Change ----
+
+# Calculate Change in Total Percent Cover for Native & Non-Native Frequency
+Forms_Cov_Chg <- Forms_Cov %>%
+  ungroup() %>%
+  #group_by("Unit_Code", "Sampling_Frame","Plot_Number","Nativity") %>%
+  complete(S_Cycle, nesting(Unit_Code, Sampling_Frame, Plot_Number, Strata, Nativity, Life_form),  
+           fill = list(tot_pct_cov = 0)) %>%
+  pivot_wider(names_from = S_Cycle, values_from = tot_pct_cov) %>%
+  mutate(tot_pct_cov_chg = round(`2` - `1`, 2))  
+
+#  ........ BAR CHG/PLOT----
+Forms_Cov_Chg %>%
+  mutate(Plot_Number = reorder_within(Plot_Number, -tot_pct_cov_chg, 
+                                      list(Strata, Nativity, Life_form))) %>%
+  ggplot(aes(x = Plot_Number, y = tot_pct_cov_chg, fill = Nativity)) +
+  geom_col(position = position_dodge()) +
+  facet_wrap(~ Strata + Life_form, scales = "free_x") +
+  scale_fill_brewer(palette="Dark2") +
+  scale_x_reordered() +
+  xlab("Plot Number") + ylab("Change in % Cover")
+
+
+#........JITTER PLOT ----
+Nat_Cov_Chg %>%
+  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg)) +
+  geom_jitter(width = 0.05) +
+  geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
+  stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
+  facet_grid(vars(Strata), vars(Nativity))  
+
+
+#........STRIP CHRT PAIR -----
+Forms_Cov %>%
+  #mutate(Status = fct_rev(Status)) %>%
+  ggplot(aes(x=S_Cycle, y=tot_pct_cov, group=Plot_Number)) +
+  geom_line(size=1, alpha=0.5, position=position_dodge(width=0.2)) +
+  geom_point(position=position_dodge(width=0.2)) +
+  xlab('Sample Cycle') +
+  ylab('Total % Cover') +
+  #scale_fill_brewer(palette="Accent") +
+  #scale_color_brewer(palette="Accent") + 
+  #theme_bw() +
+  facet_grid(cols = vars(Life_form, Nativity), rows = vars(Strata))
+
+#........QUAD NAT COVER----
+plt <- max(c(abs(max(Nat_Cov_Chg$tot_pct_cov_chg)), 
+             abs(min(Nat_Cov_Chg$tot_pct_cov_chg))))
+
+Nat_Cov_Chg %>%
+  select(-`1`, -`2`) %>%
+  pivot_wider(names_from = Nativity, values_from = tot_pct_cov_chg) %>%
+  ggplot(aes(x = Native, y = `Non-Native`)) +
+  annotate("rect", xmin = 0, xmax = Inf, ymin = 0, ymax = -Inf, fill= "green", alpha = .25) + 
+  annotate("rect", xmin = 0, xmax = -Inf, ymin = Inf, ymax = 0, fill= "red", alpha = .25) +
+  geom_point() +
+  geom_vline(xintercept = 0) + 
+  geom_hline(yintercept = 0) +
+  xlim(min(-plt),max(plt)) +
+  ylim(max(plt), min(-plt)) +
+  facet_wrap(vars(Strata), dir = "v") +
+  ylab("Change in Non-Native Cover") +
+  xlab("Change in Native Cover") 
+
+
+
+
+# ...Summary Stats ----
+
+# Use custom function at top of script to add stats to dataset
+Nat_Cov_Stats <- add.stats(
+  .data =  Nat_Cov_Chg,
+  .summary_var = tot_pct_cov_chg,
+  Unit_Code, Sampling_Frame, Strata, Nativity)
+
+
+#........BAR YEARLY MEANS----
+Nat_Cov_Stats %>%
+  filter(Nativity != "Unknown") %>%
+  ggplot(aes(x = S_Cycle, y = MEAN, fill = Nativity)) +
+  geom_col(position = position_dodge()) +
+  geom_errorbar(aes(ymin=L, ymax=R), width=.2,
+                position=position_dodge(.9)) +
+  labs(y = "% Cover") +
+  facet_wrap(vars(Strata, Nativity), scales = "free_x") +
+  scale_fill_brewer(palette="Dark2") 
+
+
+#........BAR CHG----
+ncs <- Nat_Cov_Stats %>%
+  filter(Nativity != "Unknown") %>%
+  filter(S_Cycle == "CHG") %>%
+  ggplot(aes(x = S_Cycle, y = MEAN, fill = Nativity)) +
+  geom_col(position = position_dodge()) +
+  geom_errorbar(aes(ymin=L, ymax=R), width=.2,
+                position=position_dodge(.9)) +
+  labs(y = "Change in Total % Cover") +
+  facet_wrap(vars(fct_rev(Strata))) +
+  scale_fill_brewer(palette="Dark2") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+ggsave(here("figures", "bar_mean_cov_chg_nativity.png"))  
+
+
+#.-----------------------------------------------------
+# 5) Species % Cover ----
 #.......................................................
 
 

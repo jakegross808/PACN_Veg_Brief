@@ -22,6 +22,7 @@
 #.-----------------------------------------------------
 #   Packages  ---- 
 #.......................................................
+library(gridExtra)
 library(tidytext)
 library(lubridate)
 library(here)
@@ -408,104 +409,6 @@ p2 <- Spp_Dens_Chg %>%
       axis.ticks.x=element_blank())
 p2
 
-
-p2 <- Spp_Dens_Chg %>%
-  filter(Life_Form == "Large Trees") %>%
-  ggplot(aes(x =Sampling_Frame, y = count_ha_chg)) +
-  geom_jitter(width = 0.05) +
-  geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
-  stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
-  labs(y = "Change (trees / ha)") +
-  facet_wrap(vars(Life_Form), nrow = 1, scales = "free") +
-  scale_y_continuous(limits=c(min(-Spp_Dens_Chg$y_range), 
-                              max(Spp_Dens_Chg$y_range))) +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank())
-p2
-
-
-# Make list of variable names to loop over.
-var_list = unique(Spp_Dens_Chg$Life_Form)
-
-# Make plots.
-for (i in var_list) {
-  temp_plot = ggplot(data= subset(Spp_Dens_Chg, Life_Form == i),
-           aes(x =Sampling_Frame, y = count_ha_chg)) +
-    geom_jitter(width = 0.05) +
-    geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
-    stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
-    labs(y = "") +
-    #facet_wrap(vars(Life_Form), nrow = 1, scales = "free") +
-    #scale_y_continuous(limits=c(min(Spp_Dens_Chg$count_ha_chg), max(Spp_Dens_Chg$count_ha_chg))) +
-    theme(axis.title.x=element_blank(),
-          axis.text.x=element_blank(),
-          axis.ticks.x=element_blank()) +
-    ggtitle(i)
-  ggsave(temp_plot, file=paste0("plot_", i,".png"), width = 14, height = 10, units = "cm")
-}
-
-plist <- list()
-for (i in var_list) {
-  temp_plot = ggplot(data= subset(Spp_Dens_Chg, Life_Form == i),
-                     aes(x =Sampling_Frame, y = count_ha_chg)) +
-    geom_jitter(width = 0.05) +
-    geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
-    stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
-    labs(y = "") +
-    #facet_wrap(vars(Life_Form), nrow = 1, scales = "free") +
-    #scale_y_continuous(limits=c(min(Spp_Dens_Chg$count_ha_chg), max(Spp_Dens_Chg$count_ha_chg))) +
-    theme(axis.title.x=element_blank(),
-          axis.text.x=element_blank(),
-          axis.ticks.x=element_blank()) 
-    #ggtitle(i)
-  plist[[i]] <- temp_plot
-  #ggsave(temp_plot, file=paste0("plot_", i,".png"), width = 14, height = 10, units = "cm")
-}
-
-grid.arrange(grobs = plist, nrow = 1, top = "Bruguiera  gymnorrhiza")
-
-
-for (i in temp_plot) {
-  ggplot(temp_plot[[i]])
-
-
-plotserieslines <- function(Spp_Dens_Chg$Life_Form){
-  ggplot(Spp_Dens_Chg, aes_(x=~Sampling_Frame,y=count_ha_chg)) +
-    geom_jitter(width = 0.05) +
-    geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
-    stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
-    labs(y = "Change (trees / ha)") #+
-    #facet_wrap(~Life_Form)
-}
-lapply(sort(Spp_Dens_Chg$Life_Form), plotserieslines)
-
-
-p2.1 = lapply(sort(unique(Spp_Dens_Chg$Life_Form)), function(i) {
-  
-  p = ggplot(Spp_Dens_Chg[Spp_Dens_Chg$Life_Form==i, ], aes(Sampling_Frame, count_ha_chg)) + 
-    facet_wrap(~Life_Form) +
-    geom_jitter(width = 0.05) +
-    geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
-    stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
-    labs(y = "Change (trees / ha)") +
-    #scale_y_continuous(limits=c(ifelse(i==4, 10, 0), 1.1 * max(mtcars$mpg[mtcars$cyl==i])),
-    #                   breaks=pretty_breaks(ifelse(i==6, 6, 3))) +
-    #scale_x_continuous(limits=range(mtcars$wt)) +
-    theme(plot.margin=unit(c(0, 0.1, 0, -1),"lines"))
-  
-  # Remove x-axis labels and title except for last plot
-  #if(i < max(mtcars$cyl)) p = p + theme(axis.text.x=element_blank(),
-  #                                      axis.title.x=element_blank())
-  
-  return(p)
-})
-
-grid.arrange(textGrob("MPG", rot=90), plot_grid(plotlist=p2.1, ncol=1, align="h"), 
-             widths=c(0.03,0.97), ncol=2)
-
-
-
 #........STRIP CHRT PAIR -----
 p1 <- Spp_Dens %>%
   select(-count_pp) %>%
@@ -529,8 +432,9 @@ p1
 #install.packages("gridExtra")
 #library(gridExtra)
 
-grid.arrange(p1, p2, nrow = 2, top = "Bruguiera  gymnorrhiza", 
-             heights = c(2, 1.5))
+grid.arrange(p1, p2, nrow = 2, top = "Bruguiera  gymnorrhiza" 
+             #heights = c(2, 1.5)
+             )
 
 
 

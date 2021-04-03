@@ -703,6 +703,13 @@ grid.arrange(ncs, nrs, nrow = 1)
 #.......................................................
 
 # Can Total Greater Than 100%
+fix.lifeforms <- Cover %>%
+  filter(is.na(Life_form)) %>%
+  group_by(Code) %>%
+  summarize(n = n())
+
+update.lifeforms <- read_csv(here("data", "AMME_lifeform_update.csv")) %>%
+  left_join(Cover, by = "Code") 
 
 # Calculate Total Percent Cover for Native vs. Non-native
 Forms_Cov <- Cover %>%

@@ -18,11 +18,12 @@
 #.-----------------------------------------------------
 #   Packages  ---- 
 #.......................................................
-
-library(lubridate)
-library(tidyverse)
-library(here)
+library(gridExtra)
+library(ggrepel)
 library(tidytext)
+library(lubridate)
+library(here)
+library(tidyverse)
 
 #.-----------------------------------------------------
 #   Custom Functions  ---- 
@@ -108,8 +109,12 @@ Cover_High <- read_csv(here("data/FTPC_Export", DB_download, "Species_coverage_H
 Cover_Low <- read_csv(here("data/FTPC_Export", DB_download, "Species_coverage_Low.csv"))
 Event <- read_csv(here("data/FTPC_Export", DB_download, "Event.csv"))
 
-table(Event$Plot_Type)
-levels(as.factor(Cover_Low$Plot_Type))
+# Add folders for tables (tbls) and figures (figs), if not already created.
+figs <- here("tbls")
+tbls <- here("figs")
+
+dir.create(tbls, showWarnings = FALSE)
+dir.create(figs, showWarnings = FALSE)
 
 
 #.-----------------------------------------------------
@@ -205,11 +210,12 @@ Cover_Fixed <- bind_rows(UNDERSTORY2 = Cov_Fixed_High,
          Center_X_Coord, Center_Y_Coord, UTM_Zone, Datum)
 
 #.......................................................
-#   Lump Spp ---- 
+#   Lump Spp & Update Spp Info---- 
 #....................................................... 
 
 Cover <- Cover_Fixed
 
+# If IDs are uncertain for some species lump by "Code" here:
 # Check Codes/Species
 table(Cover_Fixed$Code)
 table(Cover_Fixed$Name)
@@ -219,7 +225,7 @@ name_code <- Cover %>%
   group_by(Nativity, Name, Code, Life_form) %>%
   summarize(n = n())
 
-# # If IDs are uncertain for some species lump by "Code" here:
+
 Cover <- Cover %>%
   # Lifeforms:
   #mutate(Life_form=replace(Life_form, Code=="CIBSP.", "Tree Fern")) %>%
@@ -315,6 +321,23 @@ Cover <- Cover %>%
   mutate(Nativity=replace(Nativity, Name=="Mucuna  sp.", "Native")) %>%
   mutate(Nativity=replace(Nativity, Name=="Ficus  sp.", "Native"))
 
+# Lifeform updates:
+Cover %>%
+  group_by(Life_form, Nativity) %>%
+  summarize(n = n())
+
+lf.update <- read_csv(here("data", "AMME_lifeform_update.csv")) %>%
+  mutate(LF_update = Life_form) %>%
+  select(-Name, -n, -Life_form) 
+
+Cover <- Cover %>% 
+  left_join(lf.update, by = "Code") %>%
+  mutate(Life_form = case_when(is.na(Life_form) ~ LF_update,
+                               TRUE ~ Life_form))
+
+Cover %>%
+  group_by(Life_form, Nativity) %>%
+  summarize(n = n())
 # "Cover" ----
 # Dataset is ready for analysis
 
@@ -594,7 +617,8 @@ ncs <- Nat_Cov_Stats %>%
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank())
-ggsave(here("figures", "bar_mean_cov_chg_nativity.png"))  
+ncs
+#ggsave(here("figs", "bar_mean_cov_chg_nativity.png"))  
 
 
 #.-----------------------------------------------------
@@ -694,22 +718,15 @@ nrs <- Nat_Rich_Stats %>%
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank())
-ggsave(here("figures", "bar_mean_nat_rich_chg.png")) 
-
-grid.arrange(ncs, nrs, nrow = 1)
+nrs
+#ggsave(here("figs", "bar_mean_nat_rich_chg.png")) 
+#grid.arrange(ncs, nrs, nrow = 1)
 
 #.-----------------------------------------------------
 # 4) Lifeform Total % cover ----
 #.......................................................
 
-# Can Total Greater Than 100%
-fix.lifeforms <- Cover %>%
-  filter(is.na(Life_form)) %>%
-  group_by(Code) %>%
-  summarize(n = n())
 
-update.lifeforms <- read_csv(here("data", "AMME_lifeform_update.csv")) %>%
-  left_join(Cover, by = "Code") 
 
 # Calculate Total Percent Cover for Native vs. Non-native
 Forms_Cov <- Cover %>%
@@ -740,11 +757,13 @@ Forms_Cov %>%
 # ...Change ----
 
 # Calculate Change in Total Percent Cover for Native & Non-Native Frequency
-Forms_Cov_Chg <- Forms_Cov %>%
+Forms_Cov_Complete <- Forms_Cov %>%
   ungroup() %>%
   #group_by("Unit_Code", "Sampling_Frame","Plot_Number","Nativity") %>%
   complete(S_Cycle, nesting(Unit_Code, Sampling_Frame, Plot_Number, Strata, Nativity, Life_form),  
-           fill = list(tot_pct_cov = 0)) %>%
+           fill = list(tot_pct_cov = 0)) 
+
+Forms_Cov_Chg <- Forms_Cov_Complete %>%
   pivot_wider(names_from = S_Cycle, values_from = tot_pct_cov) %>%
   mutate(tot_pct_cov_chg = round(`2` - `1`, 2))  
 
@@ -761,26 +780,28 @@ Forms_Cov_Chg %>%
 
 
 #........JITTER PLOT ----
-Nat_Cov_Chg %>%
-  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg)) +
+Forms_Cov_Chg %>%
+  filter(Plot_Number %in% c(2,4,6,9)) %>%
+  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg, color=Nativity)) +
   geom_jitter(width = 0.05) +
   geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
   stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
-  facet_grid(vars(Strata), vars(Nativity))  
+  facet_grid(vars(Strata), vars(Life_form)) +
+  scale_color_brewer(palette="Dark2") 
 
 
 #........STRIP CHRT PAIR -----
-Forms_Cov %>%
+Forms_Cov_Complete %>%
   #mutate(Status = fct_rev(Status)) %>%
-  ggplot(aes(x=S_Cycle, y=tot_pct_cov, group=Plot_Number)) +
+  ggplot(aes(x=S_Cycle, y=tot_pct_cov, 
+             group=interaction(Plot_Number, Nativity), 
+             color = Nativity)) +
   geom_line(size=1, alpha=0.5, position=position_dodge(width=0.2)) +
   geom_point(position=position_dodge(width=0.2)) +
   xlab('Sample Cycle') +
   ylab('Total % Cover') +
-  #scale_fill_brewer(palette="Accent") +
-  #scale_color_brewer(palette="Accent") + 
-  #theme_bw() +
-  facet_grid(cols = vars(Life_form, Nativity), rows = vars(Strata))
+  scale_color_brewer(palette="Dark2") +
+  facet_grid(cols = vars(Life_form), rows = vars(Strata))
 
 #........QUAD NAT COVER----
 plt <- max(c(abs(max(Nat_Cov_Chg$tot_pct_cov_chg)), 

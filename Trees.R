@@ -120,8 +120,8 @@ Seedlings <- read_csv(here("data/FTPC_Export", DB_download, "Seedlings.csv"))
 Event <- read_csv(here("data/FTPC_Export", DB_download,"Event.csv"))
 
 # Add folders for tables (tbls) and figures (figs), if not already created.
-figs <- here(DB_download, "tbls")
-tbls <- here(DB_download, "figs")
+figs <- here("tbls")
+tbls <- here("figs")
 
 dir.create(tbls, showWarnings = FALSE)
 dir.create(figs, showWarnings = FALSE)

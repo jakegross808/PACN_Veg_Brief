@@ -725,30 +725,47 @@ nrs
 #.-----------------------------------------------------
 # 4) Lifeform Total % cover ----
 #.......................................................
+#'* Optional Filter  * 
+Forms_Cov_Filter <- Cover %>%
+  mutate(NLF = paste0(Nativity, " ", Life_form, "s")) %>%
+  filter(Plot_Number %in% c(2,4,6,9)) %>%
+  filter(Nativity != "Unknown")
+  #drop_na(Name)
 
-
-
-# Calculate Total Percent Cover for Native vs. Non-native
-Forms_Cov <- Cover %>%
+# Calculate Total Percent Cover for Native vs. Non-native Lifeforms
+Forms_Cov <- Forms_Cov_Filter %>%
   group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, 
-           Transect, Point, Strata, Nativity, Life_form) %>%
+           Transect, Point, Strata, Nativity, Life_form, NLF) %>%
   # Count hits at each cover point:
   summarise(Hits_All_Forms = n(), .groups = 'drop')  %>%
   # But don't count record if entire plot had no hits: (e.g. transect is NA )
   mutate(Hits_All_Forms = replace(Hits_All_Forms, is.na(Transect), 0)) %>%
   # group by plot (i.e. remove Transect and Point from grouping variable)
-  group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, Strata, Nativity, Life_form) %>%
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, Strata, Nativity, 
+           Life_form, NLF) %>%
   #Total hits at each point for each strata for entire plot 
   # (can be > 300 points or >100%)
   summarise(tot_pct_cov = (sum(Hits_All_Forms)) / 300 * 100, .groups = 'drop')
 
+# Calculate lifeform Cover (same as lines above) - but combine Strata 1 & 2
+Forms_Cov_1a2 <- Forms_Cov_Filter %>%
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number,
+           Transect, Point, Nativity, Life_form, NLF) %>%
+  summarise(Hits_All_Forms = n_distinct(n()), .groups = "drop") %>% #remove dbl counts
+  # group by plot (i.e. remove Transect and Point from grouping variable)
+  group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, 
+           Nativity, Life_form, NLF) %>%
+  #Total hits at each point for each strata for entire plot 
+  # (cannot be greater than 100%)
+  summarise(tot_pct_cov = (sum(Hits_All_Forms)) / 300 * 100, .groups = 'drop')
+
 #  ........ BAR COV/PLOT----
 Forms_Cov %>%
-  ggplot(aes(x = reorder_within(Plot_Number, -tot_pct_cov, within = Life_form), 
+  ggplot(aes(x = reorder_within(Plot_Number, -tot_pct_cov, within = NLF), 
              y = tot_pct_cov, fill = S_Cycle)) +
   geom_bar(stat="identity", position = position_dodge()) +
   scale_fill_brewer(palette="Accent") +
-  facet_grid(rows = vars(Strata), cols = vars(Life_form), scales = "free") +
+  facet_grid(rows = vars(Strata), cols = vars(NLF), scales = "free") +
   #facet_wrap(vars(Strata), dir = "v", scales = "free_x") +
   scale_x_reordered() +
   xlab("Plot Number")
@@ -760,12 +777,27 @@ Forms_Cov %>%
 Forms_Cov_Complete <- Forms_Cov %>%
   ungroup() %>%
   #group_by("Unit_Code", "Sampling_Frame","Plot_Number","Nativity") %>%
-  complete(S_Cycle, nesting(Unit_Code, Sampling_Frame, Plot_Number, Strata, Nativity, Life_form),  
+  complete(S_Cycle, nesting(Unit_Code, Sampling_Frame, Plot_Number, Strata, 
+                            Nativity, Life_form, NLF),  
            fill = list(tot_pct_cov = 0)) 
 
 Forms_Cov_Chg <- Forms_Cov_Complete %>%
   pivot_wider(names_from = S_Cycle, values_from = tot_pct_cov) %>%
   mutate(tot_pct_cov_chg = round(`2` - `1`, 2))  
+
+# Calculate Change (Strata 1&2 Combined)
+Forms_Cov_Complete_1a2 <- Forms_Cov_1a2 %>%
+  ungroup() %>%
+  #group_by("Unit_Code", "Sampling_Frame","Plot_Number","Nativity") %>%
+  complete(S_Cycle, nesting(Unit_Code, Sampling_Frame, Plot_Number, 
+                            Nativity, Life_form, NLF),  
+           fill = list(tot_pct_cov = 0)) 
+
+Forms_Cov_Chg_1a2 <- Forms_Cov_Complete_1a2 %>%
+  pivot_wider(names_from = S_Cycle, values_from = tot_pct_cov) %>%
+  mutate(tot_pct_cov_chg = round(`2` - `1`, 2))  
+
+
 
 #  ........ BAR CHG/PLOT----
 Forms_Cov_Chg %>%
@@ -781,7 +813,7 @@ Forms_Cov_Chg %>%
 
 #........JITTER PLOT ----
 Forms_Cov_Chg %>%
-  filter(Plot_Number %in% c(2,4,6,9)) %>%
+  #filter(Plot_Number %in% c(2,4,6,9)) %>%
   ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg, color=Nativity)) +
   geom_jitter(width = 0.05) +
   geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
@@ -810,7 +842,45 @@ Forms_Cov_Complete %>%
 Forms_Cov_Stats <- add.stats(
   .data =  Forms_Cov_Chg,
   .summary_var = tot_pct_cov_chg,
-  Unit_Code, Sampling_Frame, Strata, Nativity, Life_form)
+  Unit_Code, Sampling_Frame, Strata, Nativity, Life_form, NLF)
+
+# Add stats to dataset (Strata 1&2 Combined)
+Forms_Cov_Stats_1a2 <- add.stats(
+  .data =  Forms_Cov_Chg_1a2,
+  .summary_var = tot_pct_cov_chg,
+  Unit_Code, Sampling_Frame, Nativity, Life_form, NLF)
+
+
+#........BAR LF CHG 1a2 ----
+
+fcs.means1a2 <- Forms_Cov_Stats_1a2 %>%
+  filter(S_Cycle == "CHG") %>%
+  #filter(MEAN > 0.5 | MEAN < -0.5) %>%
+  mutate(tot_pct_cov_chg = MEAN) %>%
+  mutate(ERR = case_when(NPLOTS < 4 ~ NA_real_ , TRUE ~ ERR)) %>%
+  droplevels() 
+  
+fcs.NLF_1a2 <- unique(fcs.means1a2$NLF)
+fcs.NLF_1a2
+
+Forms_Cov_Chg_1a2 %>%
+  filter(NLF %in% fcs.NLF_1a2) %>%
+  ggplot(aes(x = reorder(NLF, tot_pct_cov_chg), y = tot_pct_cov_chg, fill = Nativity)) +
+  geom_linerange(data = fcs.means1a2, aes(ymin = MEAN - ERR, ymax = MEAN + ERR)) +
+  geom_point(
+    position = position_jitterdodge(jitter.width = 0.1, jitter.height = 0, dodge.width = 0.8),
+    shape = 21, size = 1, alpha = 0.5) +
+  geom_bar(data = fcs.means1a2, colour = "black", stat="identity", alpha = 0.5) +
+  geom_hline(yintercept=0, linetype="solid", 
+             color = "black", size=0.5) +
+  labs(title="", y="Change in % Cover", x="Species") +
+  scale_fill_brewer(palette="Dark2") +
+  guides(fill = guide_legend(override.aes = list(shape = NA))) +
+  #scale_color_discrete() +
+  #name = NULL, values = c("Specificity" = "black")) +
+  theme(legend.title=element_blank()) +
+  coord_flip()
+
 
 
 #........BAR YEARLY MEANS----
@@ -848,12 +918,12 @@ ncs
 #.......................................................
 
 #'* Optional Filter  * 
-Spp_Cover <- Cover %>%
+Spp_Cov_Filter <- Cover %>%
   filter(Plot_Number %in% c(2,4,6,9)) %>%
   drop_na(Name)
 
 # Calculate Total Percent Cover for Native vs. Non-native
-Spp_Cov <- Spp_Cover %>%
+Spp_Cov <- Spp_Cov_Filter %>%
   group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, 
            Transect, Point, Strata, Nativity, Code, Name, Life_form) %>%
   # Count hits at each cover point (will be '1' for each species)
@@ -866,7 +936,7 @@ Spp_Cov <- Spp_Cover %>%
   summarise(pct_cov_sp = (sum(Hits_Sp)) / 300 * 100, .groups = 'drop') 
 
 # Calculate Spp Cover (same as lines above) - but combine Strata 1 & 2
-Spp_Cov_1a2 <- Spp_Cover %>%
+Spp_Cov_1a2 <- Spp_Cov_Filter %>%
   group_by(S_Cycle, Unit_Code, Sampling_Frame, Plot_Number, 
            Transect, Point, Nativity, Code, Name, Life_form) %>%
   summarise(Hits_Sp = n_distinct(n()), .groups = "drop") %>%

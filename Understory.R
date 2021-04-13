@@ -873,7 +873,7 @@ Forms_Cov_Chg_1a2 %>%
   geom_bar(data = fcs.means1a2, colour = "black", stat="identity", alpha = 0.5) +
   geom_hline(yintercept=0, linetype="solid", 
              color = "black", size=0.5) +
-  labs(title="", y="Change in % Cover", x="Species") +
+  labs(title="", y="Change in % Cover", x="Nativity + Lifeform") +
   scale_fill_brewer(palette="Dark2") +
   guides(fill = guide_legend(override.aes = list(shape = NA))) +
   #scale_color_discrete() +

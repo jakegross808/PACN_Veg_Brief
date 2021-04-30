@@ -122,13 +122,13 @@ dir.create(figs, showWarnings = FALSE)
 #.......................................................
 # User selected subsets
 levels(as.factor(Event$Unit_Code))
-uc <- "AMME"
+uc <- "HALE"
 
 levels(as.factor(Event$Community))
 c <- "All"
 
 levels(as.factor(Event$Sampling_Frame))
-sf <- "All"
+sf <- "Subalpine Shrubland"
 
 
 Event_filter <- site.filter(Event, uc, c, sf) %>%
@@ -215,7 +215,8 @@ Cover_Fixed <- bind_rows(UNDERSTORY2 = Cov_Fixed_High,
 
 Cover <- Cover_Fixed
 
-# If IDs are uncertain for some species lump by "Code" here:
+#'* If IDs are uncertain for some species lump by "Code" here: *
+
 # Check Codes/Species
 table(Cover_Fixed$Code)
 table(Cover_Fixed$Name)
@@ -226,28 +227,28 @@ name_code <- Cover %>%
   summarize(n = n())
 
 
-Cover <- Cover %>%
+Cover <- Cover #%>%
   # Lifeforms:
   #mutate(Life_form=replace(Life_form, Code=="CIBSP.", "Tree Fern")) %>%
   
-  # Species:
-  # Epipremnum pinnatum is accepted name ITIS, Bishop, and is introduced/naturalized (cultivar Aureum which originated in the Solomon Islands? (Wagner))  
-  mutate(Code=replace(Code, Code=="EPISP.", "EPIPIN")) %>%
-  mutate(Name=replace(Name, Name=="Epipremnum  sp.", "Epipremnum pinnatum")) %>%
-  # The majority of Mucuna sp. is likely 'M. ginantea', but other spp. are possible. 
-  mutate(Code=replace(Code, Code=="MUCSPP", "MUCGIG2")) %>%
-  mutate(Name=replace(Name, Name=="Mucuna  gigantea", "Mucuna  sp.")) %>%
-  # The majority of Ipomoea sp. is likely 'I. violacea', but other spp. are possible. 
-  mutate(Code=replace(Code, Code=="IPOVIO", "IPOSP.")) %>%
-  mutate(Name=replace(Name, Name=="Ipomoea  violacea", "Ipomoea  sp.")) %>%
-  # The majority of Ficus sp. is likely 'F. prolixa' & 'F.tinctoria, but other spp. are possible. 
-  mutate(Code=replace(Code, Code=="FICPRO", "FICSP.")) %>%
-  mutate(Name=replace(Name, Name=="Ficus  prolixa", "Ficus  sp.")) %>%
-  mutate(Code=replace(Code, Code=="FICTIN1", "FICSP.")) %>%
-  mutate(Name=replace(Name, Name=="Ficus  tinctoria", "Ficus  sp.")) %>%
-  # The majority of Nephrolepis sp. is likely 'N. hirsutula', but other spp. are possible. 
-  mutate(Code=replace(Code, Code=="NEPHIR", "NEPSP.")) %>%
-  mutate(Name=replace(Name, Name=="Nephrolepis  hirsutula", "Nephrolepis  sp.")) 
+  # # Species:
+  # # Epipremnum pinnatum is accepted name ITIS, Bishop, and is introduced/naturalized (cultivar Aureum which originated in the Solomon Islands? (Wagner))  
+  # mutate(Code=replace(Code, Code=="EPISP.", "EPIPIN")) %>%
+  # mutate(Name=replace(Name, Name=="Epipremnum  sp.", "Epipremnum pinnatum")) %>%
+  # # The majority of Mucuna sp. is likely 'M. ginantea', but other spp. are possible. 
+  # mutate(Code=replace(Code, Code=="MUCSPP", "MUCGIG2")) %>%
+  # mutate(Name=replace(Name, Name=="Mucuna  gigantea", "Mucuna  sp.")) %>%
+  # # The majority of Ipomoea sp. is likely 'I. violacea', but other spp. are possible. 
+  # mutate(Code=replace(Code, Code=="IPOVIO", "IPOSP.")) %>%
+  # mutate(Name=replace(Name, Name=="Ipomoea  violacea", "Ipomoea  sp.")) %>%
+  # # The majority of Ficus sp. is likely 'F. prolixa' & 'F.tinctoria, but other spp. are possible. 
+  # mutate(Code=replace(Code, Code=="FICPRO", "FICSP.")) %>%
+  # mutate(Name=replace(Name, Name=="Ficus  prolixa", "Ficus  sp.")) %>%
+  # mutate(Code=replace(Code, Code=="FICTIN1", "FICSP.")) %>%
+  # mutate(Name=replace(Name, Name=="Ficus  tinctoria", "Ficus  sp.")) %>%
+  # # The majority of Nephrolepis sp. is likely 'N. hirsutula', but other spp. are possible. 
+  # mutate(Code=replace(Code, Code=="NEPHIR", "NEPSP.")) %>%
+  # mutate(Name=replace(Name, Name=="Nephrolepis  hirsutula", "Nephrolepis  sp.")) 
   
 #   
 # Cover <- Cover %>%
@@ -292,8 +293,8 @@ Cover <- Cover %>%
 #   Remove Nativity Unknown?---- 
 #.......................................................
 
-# Decide if it is appropriate or not to remove records that 
-# show Nativity == Unknown
+#'*If appropriate, remove records that show Nativity == Unknown*
+ 
 table(Cover$Nativity)
 
 # Display "Unknown" Nativity species
@@ -309,31 +310,31 @@ Cover %>%
 
 # If Nativity is wrong update here:
 
-Cover <- Cover %>%
-  #Non-natives:
-  mutate(Nativity=replace(Nativity, Name=="Epipremnum pinnatum", "Non-Native")) %>%
-  mutate(Nativity=replace(Nativity, Name=="Stachytarpheta  sp.", "Non-Native")) %>%
-  #Natives:
-  mutate(Nativity=replace(Nativity, Name=="Hernandia  sp.", "Native")) %>%
-  mutate(Nativity=replace(Nativity, Name=="Ipomoea  sp.", "Native")) %>%
-  mutate(Nativity=replace(Nativity, Name=="Nephrolepis  sp.", "Native")) %>%
-  mutate(Nativity=replace(Nativity, Name=="Thelypteris sp.", "Native")) %>%
-  mutate(Nativity=replace(Nativity, Name=="Mucuna  sp.", "Native")) %>%
-  mutate(Nativity=replace(Nativity, Name=="Ficus  sp.", "Native"))
+Cover <- Cover #%>%
+  # #Non-natives:
+  # mutate(Nativity=replace(Nativity, Name=="Epipremnum pinnatum", "Non-Native")) %>%
+  # mutate(Nativity=replace(Nativity, Name=="Stachytarpheta  sp.", "Non-Native")) %>%
+  # #Natives:
+  # mutate(Nativity=replace(Nativity, Name=="Hernandia  sp.", "Native")) %>%
+  # mutate(Nativity=replace(Nativity, Name=="Ipomoea  sp.", "Native")) %>%
+  # mutate(Nativity=replace(Nativity, Name=="Nephrolepis  sp.", "Native")) %>%
+  # mutate(Nativity=replace(Nativity, Name=="Thelypteris sp.", "Native")) %>%
+  # mutate(Nativity=replace(Nativity, Name=="Mucuna  sp.", "Native")) %>%
+  # mutate(Nativity=replace(Nativity, Name=="Ficus  sp.", "Native"))
 
 # Lifeform updates:
 Cover %>%
   group_by(Life_form, Nativity) %>%
   summarize(n = n())
 
-lf.update <- read_csv(here("data", "AMME_lifeform_update.csv")) %>%
-  mutate(LF_update = Life_form) %>%
-  select(-Name, -n, -Life_form) 
+# lf.update <- read_csv(here("data", "AMME_lifeform_update.csv")) %>%
+#   mutate(LF_update = Life_form) %>%
+#   select(-Name, -n, -Life_form) 
 
-Cover <- Cover %>% 
-  left_join(lf.update, by = "Code") %>%
-  mutate(Life_form = case_when(is.na(Life_form) ~ LF_update,
-                               TRUE ~ Life_form))
+# Cover <- Cover %>% 
+#   left_join(lf.update, by = "Code") %>%
+#   mutate(Life_form = case_when(is.na(Life_form) ~ LF_update,
+#                                TRUE ~ Life_form))
 
 Cover %>%
   group_by(Life_form, Nativity) %>%
@@ -616,7 +617,8 @@ ncs <- Nat_Cov_Stats %>%
   scale_fill_brewer(palette="Dark2") +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
-        axis.ticks.x=element_blank())
+        axis.ticks.x=element_blank(),
+        legend.title = element_blank())
 ncs
 #ggsave(here("figs", "bar_mean_cov_chg_nativity.png"))  
 
@@ -717,7 +719,8 @@ nrs <- Nat_Rich_Stats %>%
   scale_fill_brewer(palette="Dark2") +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
-        axis.ticks.x=element_blank())
+        axis.ticks.x=element_blank(),
+        legend.position = "none")
 nrs
 #ggsave(here("figs", "bar_mean_nat_rich_chg.png")) 
 #grid.arrange(ncs, nrs, nrow = 1)
@@ -726,10 +729,10 @@ nrs
 # 4) Lifeform Total % cover ----
 #.......................................................
 #'* Optional Filter  * 
-Forms_Cov_Filter <- Cover %>%
-  mutate(NLF = paste0(Nativity, " ", Life_form, "s")) %>%
-  filter(Plot_Number %in% c(2,4,6,9)) %>%
-  filter(Nativity != "Unknown")
+ Forms_Cov_Filter <- Cover %>%
+   mutate(NLF = paste0(Nativity, " ", Life_form, "s")) #%>%
+#   filter(Plot_Number %in% c(2,4,6,9)) %>%
+#   filter(Nativity != "Unknown")
   #drop_na(Name)
 
 # Calculate Total Percent Cover for Native vs. Non-native Lifeforms
@@ -918,9 +921,9 @@ ncs
 #.......................................................
 
 #'* Optional Filter  * 
-Spp_Cov_Filter <- Cover %>%
-  filter(Plot_Number %in% c(2,4,6,9)) %>%
-  drop_na(Name)
+Spp_Cov_Filter <- Cover #%>%
+  #filter(Plot_Number %in% c(2,4,6,9)) %>%
+  #drop_na(Name)
 
 # Calculate Total Percent Cover for Native vs. Non-native
 Spp_Cov <- Spp_Cov_Filter %>%
@@ -1070,10 +1073,7 @@ Spp_Cov_Chg_1a2 %>%
   #name = NULL, values = c("Specificity" = "black")) +
   theme(legend.title=element_blank()) +
   coord_flip()
-p1a2
-#png(here("figures","spp_cov_chg_1a2.png"), width = 400, height = 200)
-#plot(p1a2)
-#dev.off()
+
 
 
 
@@ -1096,6 +1096,9 @@ Spp_Hits <- Cover %>%
   summarise(tot_hits = (sum(Hits_Sp)), .groups = 'drop') %>%
   filter(S_Cycle == "2")
 
+Spp_Hits <- Spp_Hits %>%
+  drop_na(Name)
+  
 
 library(treemapify)
 
@@ -1109,7 +1112,10 @@ tree.plot <- ggplot(Spp_Hits, aes(area = tot_hits, subgroup = Nativity,
                     grow = TRUE, reflow = T, min.size = 5) +
   scale_fill_brewer(palette="Dark2") +
   theme(legend.position = "none")
-tree.plot
+
+tree.plot #if this throws "Error in 1:row_n : argument of length 0", than check
+# for NA's in the dataset. 
+
 png(here("figures","tree_plot_230x160r180.png"), width = 230, height = 160, 
     units = 'mm', res = 180)
 plot(tree.plot)

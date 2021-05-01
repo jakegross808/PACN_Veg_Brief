@@ -230,7 +230,7 @@ name_code <- Cover %>%
   summarize(n = n())
 
 
-Cover <- Cover #%>%
+#Cover <- Cover %>%
   # Lifeforms:
   #mutate(Life_form=replace(Life_form, Code=="CIBSP.", "Tree Fern")) %>%
   
@@ -253,8 +253,18 @@ Cover <- Cover #%>%
   # mutate(Code=replace(Code, Code=="NEPHIR", "NEPSP.")) %>%
   # mutate(Name=replace(Name, Name=="Nephrolepis  hirsutula", "Nephrolepis  sp.")) 
   
-#   
-# Cover <- Cover %>%
+   
+ Cover <- Cover %>%
+   # Change Code column: "FESRUB" to "POAPRA" (Cycle 1 only)
+   mutate(Code = case_when(
+     Code == "FESRUB" & S_Cycle == 1 ~ "POAPRA",
+     TRUE ~ Code)) %>%
+   # Change Name column: "Festuca  rubra" to "Poa  pratensis" (Cycle 1 only)
+   mutate(Name = case_when(
+     Name == "Festuca  rubra" & S_Cycle == 1 ~ "Poa  pratensis",
+     TRUE ~ Name)) 
+   
+ 
 #   mutate(Code=replace(Code, Code=="SADSOU", "SADSP.")) %>%
 #   mutate(Name=replace(Name, Name=="Sadleria  souleyetiana", "Sadleria  sp.")) %>%
 #   mutate(Code=replace(Code, Code=="SADCYA", "SADSP.")) %>%

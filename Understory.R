@@ -3,7 +3,7 @@
 ##...US National Park Service........................##
 ##...Pacific Island Inventory & Monitoring Network...##
 ##...................................................##
-##...Jacob Gross 01/22/2021..........................##
+##...J. Gross & L. Moore 04/30/2021..................##
 ##...................................................##
 ##...Briefing report.................................##
 ##...FTPC - Focal Terrestrial Plant Communities......##
@@ -12,7 +12,10 @@
 ##...................................................##
 
 
-## Used "01_FTPC_DB_20201203.r" to prepare .csv files
+#'* NOTE - Before running this script for first time: * 
+#'* Export FTPC data from database using script 01_FTPC_DB_YYYYMMDD *
+#'* All PACN vegetation R scrips are located on I drive: *
+#'* 'I:\vital_signs\05_focal_terr_plant_communities\Documents\R_scripts' *
 
 
 #.-----------------------------------------------------
@@ -1175,8 +1178,8 @@ ggplot(Spp_Slope) +
   facet_grid(vars(Strata), vars(Plot), labeller = label_both) +
   geom_text_repel(label=Spp_Slope$code_lab,
                   y=Spp_Slope$`1`, x=rep(1, NROW(Spp_Slope)), hjust=1.1, size=3, direction = "y") +
-  geom_text(label="2010", x=1, y=1.1*(max(Spp_Slope$`1`, Spp_Slope$`2`)), hjust=1.2, size=4.5) +
-  geom_text(label="2015", x=2, y=1.1*(max(Spp_Slope$`1`, Spp_Slope$`2`)), hjust=-0.1, size=4.5) +
+  geom_text(label="2012", x=1, y=1.1*(max(Spp_Slope$`1`, Spp_Slope$`2`)), hjust=1.2, size=4.5) +
+  geom_text(label="2017", x=2, y=1.1*(max(Spp_Slope$`1`, Spp_Slope$`2`)), hjust=-0.1, size=4.5) +
   guides(color=guide_legend("")) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
   theme(axis.ticks = element_blank(),axis.text.x = element_blank()) +
@@ -1194,8 +1197,8 @@ Spp_Slope_X <- Spp_Cov_Chg %>%
                               `2` >= 5 ~ Code,
                               TRUE ~ "")) %>%
   mutate(Direction = as.factor(Direction)) %>%
-  filter(Plot_Number == "10" |
-           Plot_Number == "7" )
+  filter(Plot_Number == "2" |
+           Plot_Number == "3" )
 #filter(Code == "CIBGLA")
 
 
@@ -1209,8 +1212,8 @@ ggplot(Spp_Slope_X) +
   facet_grid(vars(Strata), vars(Plot), labeller = label_both) +
   geom_text_repel(label=Spp_Slope_X$code_lab,
                   y=Spp_Slope_X$`1`, x=rep(1, NROW(Spp_Slope_X)), hjust=1.1, size=3, direction = "y") +
-  geom_text(label="2010", x=1, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=1.2, size=4.5) +
-  geom_text(label="2015", x=2, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=-0.1, size=4.5) +
+  geom_text(label="2012", x=1, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=1.2, size=4.5) +
+  geom_text(label="2017", x=2, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=-0.1, size=4.5) +
   guides(color=guide_legend("")) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
   theme(axis.ticks = element_blank(),axis.text.x = element_blank()) +
@@ -1228,7 +1231,7 @@ Spp_Slope_X <- Spp_Cov_Chg %>%
                               `2` >= 5 ~ Code,
                               TRUE ~ "")) %>%
   mutate(Direction = as.factor(Direction)) %>%
-  filter(Code == "BRUGYM")
+  filter(Code == "FESRUB")
 
 
 ggplot(Spp_Slope_X) +
@@ -1247,6 +1250,18 @@ ggplot(Spp_Slope_X) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
   theme(axis.ticks = element_blank(),axis.text.x = element_blank()) +
   scale_color_manual(values = c("#CC0000", "#009900")) 
+
+# ........BAR SP = X ----
+sp.x <- "POAPRA"
+Spp_Cov %>%
+  filter(Code == sp.x) %>%
+  ggplot(aes(x = reorder_within(Plot_Number, desc(pct_cov_sp), Strata), y = pct_cov_sp, fill = S_Cycle)) +
+  geom_col(position = position_dodge()) +
+  ggtitle(sp.x) +
+  scale_fill_brewer(palette="Accent") +
+  facet_wrap(vars(Strata), dir = "v", scales = "free_x") +
+  ylab("Total % Cover") + xlab("Plot Number") +
+  scale_x_reordered()
 
 #........TABLE DECLINES ----
 declines <- Spp_Cov_Stats %>%

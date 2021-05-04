@@ -257,11 +257,11 @@ name_code <- Cover %>%
  Cover <- Cover %>%
    # Change Code column: "FESRUB" to "POAPRA" (Cycle 1 only)
    mutate(Code = case_when(
-     Code == "FESRUB" & S_Cycle == 1 ~ "POAPRA",
+     Code == "FESRUB" & S_Cycle == 1 & Plot_Number == 3 ~ "POAPRA",
      TRUE ~ Code)) %>%
    # Change Name column: "Festuca  rubra" to "Poa  pratensis" (Cycle 1 only)
    mutate(Name = case_when(
-     Name == "Festuca  rubra" & S_Cycle == 1 ~ "Poa  pratensis",
+     Name == "Festuca  rubra" & S_Cycle == 1 & Plot_Number == 3 ~ "Poa  pratensis",
      TRUE ~ Name)) 
    
  
@@ -323,9 +323,10 @@ Cover %>%
 
 # If Nativity is wrong update here:
 
-Cover <- Cover #%>%
+Cover <- Cover %>%
   # #Non-natives:
-  # mutate(Nativity=replace(Nativity, Name=="Epipremnum pinnatum", "Non-Native")) %>%
+   mutate(Nativity=replace(Nativity, Code=="Unk_Grass1", "Non-Native")) #%>%
+  # mutate(Nativity=replace(Nativity, Name=="Epipremnum pinnatum", "Non-Native")) %>% 
   # mutate(Nativity=replace(Nativity, Name=="Stachytarpheta  sp.", "Non-Native")) %>%
   # #Natives:
   # mutate(Nativity=replace(Nativity, Name=="Hernandia  sp.", "Native")) %>%
@@ -340,6 +341,16 @@ Cover %>%
   group_by(Life_form, Nativity) %>%
   summarize(n = n())
 
+Cover %>%
+  filter(is.na(Life_form)) %>%
+  group_by(Name, Code) %>%
+  summarize(n = n())
+
+Cover <- Cover %>%
+  mutate(Life_form=replace(Life_form, Code=="PINPAT", "Tree")) %>%
+  mutate(Life_form=replace(Life_form, Code=="RYTSEM", "Grass")) %>%
+  mutate(Life_form=replace(Life_form, Code=="SANHAL", "Tree"))
+
 # lf.update <- read_csv(here("data", "AMME_lifeform_update.csv")) %>%
 #   mutate(LF_update = Life_form) %>%
 #   select(-Name, -n, -Life_form) 
@@ -352,6 +363,18 @@ Cover %>%
 Cover %>%
   group_by(Life_form, Nativity) %>%
   summarize(n = n())
+
+
+# NA updates:
+Cover %>%
+  filter(is.na(Nativity)) 
+
+Cover <- Cover %>%
+  drop_na(Transect)
+
+Cover %>%
+  filter(is.na(Nativity)) 
+
 # "Cover" ----
 # Dataset is ready for analysis
 
@@ -442,6 +465,29 @@ Tot_Cov_Chg %>%
   xlab("Plot Number") + ylab("Change in Total % Cover") +
   theme(legend.position = "none")
 
+#........PAIRED PLOT ----
+Tot_Cov %>%
+  #mutate(Status = fct_rev(Status)) %>%
+  ggplot(aes(x=S_Cycle, y=tot_pct_cov, group=Plot_Number)) +
+  geom_line(size=1, alpha=0.5, position=position_dodge(width=0.2)) +
+  geom_point(position=position_dodge(width=0.2)) +
+  xlab('Sample Cycle') +
+  ylab('Total % Cover') +
+  #scale_fill_brewer(palette="Accent") +
+  #scale_color_brewer(palette="Accent") + 
+  #theme_bw() +
+  facet_grid(rows = vars(Strata))
+
+#........JITTER PLOT ----
+# Total Cover Change jitter plot
+Tot_Cov_Chg %>%
+  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg)) +
+  geom_jitter(width = 0.05) +
+  geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
+  stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
+  labs(x = "", y = "Change in % Cover") +
+  facet_wrap(vars(Strata), dir = "v") 
+
 
 # Summary Stats ----
 
@@ -486,16 +532,6 @@ Tot_Cov_Stats %>%
 #   facet_wrap( ~Strata, scales = 'free_x', dir = "v")
 
 
-
-#........JITTER PLOT ----
-# Total Cover Change jitter plot
-Tot_Cov_Chg %>%
-  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg)) +
-  geom_jitter(width = 0.05) +
-  geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
-  stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
-  labs(x = "Sampling Frame", y = "Change in % Cover") +
-  facet_wrap(vars(Strata), dir = "v") 
  
 
 #.-----------------------------------------------------
@@ -529,18 +565,6 @@ Nat_Cov %>%
   scale_x_reordered() +
   xlab("Plot Number")
 
-#........STRIP CHRT PAIR -----
-Nat_Cov %>%
-  #mutate(Status = fct_rev(Status)) %>%
-  ggplot(aes(x=S_Cycle, y=tot_pct_cov, group=Plot_Number)) +
-  geom_line(size=1, alpha=0.5, position=position_dodge(width=0.2)) +
-  geom_point(position=position_dodge(width=0.2)) +
-  xlab('Sample Cycle') +
-  ylab('Total % Cover') +
-  #scale_fill_brewer(palette="Accent") +
-  #scale_color_brewer(palette="Accent") + 
-  #theme_bw() +
-  facet_grid(cols = vars(Nativity), rows = vars(Strata))
 
 # ...Change ----
 
@@ -565,26 +589,21 @@ Nat_Cov_Chg %>%
   xlab("Plot Number") + ylab("Change in % Cover")
 
 
-#........JITTER PLOT ----
-Nat_Cov_Chg %>%
-  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg)) +
-  geom_jitter(width = 0.05) +
-  geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
-  stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
-  facet_grid(vars(Strata), vars(Nativity))  
-
-
 #........QUAD NAT COVER----
 plt <- max(c(abs(max(Nat_Cov_Chg$tot_pct_cov_chg)), 
                  abs(min(Nat_Cov_Chg$tot_pct_cov_chg))))
 
 Nat_Cov_Chg %>%
+  filter(Strata == "UNDERSTORY1") %>%
   select(-`1`, -`2`) %>%
   pivot_wider(names_from = Nativity, values_from = tot_pct_cov_chg) %>%
-  ggplot(aes(x = Native, y = `Non-Native`)) +
-  annotate("rect", xmin = 0, xmax = Inf, ymin = 0, ymax = -Inf, fill= "green", alpha = .25) + 
-  annotate("rect", xmin = 0, xmax = -Inf, ymin = Inf, ymax = 0, fill= "red", alpha = .25) +
-  geom_point() +
+  ggplot(aes(x = Native, y = `Non-Native`, label = Plot_Number)) +
+  annotate("rect", xmin = 0, xmax = Inf, ymin = 0, ymax = -Inf, fill= "#1B9E77", alpha = .25) + 
+  annotate("rect", xmin = 0, xmax = -Inf, ymin = Inf, ymax = 0, fill= "#D95F02", alpha = .25) +
+  geom_point(color = "black", shape = 19, size = 5) +
+  geom_text(vjust = 0.4, color = "white", size = 3, 
+            fontface = "bold", show.legend = FALSE) +
+  #geom_text_repel() +
   geom_vline(xintercept = 0) + 
   geom_hline(yintercept = 0) +
   xlim(min(-plt),max(plt)) +
@@ -592,10 +611,8 @@ Nat_Cov_Chg %>%
   facet_wrap(vars(Strata), dir = "v") +
   ylab("Change in Non-Native Cover") +
   xlab("Change in Native Cover") 
+
    
-
-
-
 # ...Summary Stats ----
 
 # Use custom function at top of script to add stats to dataset
@@ -607,20 +624,22 @@ Nat_Cov_Stats <- add.stats(
 
 #........BAR YEARLY MEANS----
 Nat_Cov_Stats %>%
-  filter(Nativity != "Unknown") %>%
+  filter(S_Cycle != "CHG") %>%
   ggplot(aes(x = S_Cycle, y = MEAN, fill = Nativity)) +
   geom_col(position = position_dodge()) +
   geom_errorbar(aes(ymin=L, ymax=R), width=.2,
                 position=position_dodge(.9)) +
   labs(y = "% Cover") +
   facet_wrap(vars(Strata, Nativity), scales = "free_x") +
-  scale_fill_brewer(palette="Dark2") 
+  scale_fill_brewer(palette="Dark2") +
+  xlab("Sample Cycle") +
+  theme(legend.title = element_blank())
 
 
 #........BAR CHG----
-ncs <- Nat_Cov_Stats %>%
-  filter(Nativity != "Unknown") %>%
+Nat_Cov_Stats %>%
   filter(S_Cycle == "CHG") %>%
+  #filter(Strata == "UNDERSTORY1") %>%
   ggplot(aes(x = S_Cycle, y = MEAN, fill = Nativity)) +
   geom_col(position = position_dodge()) +
   geom_errorbar(aes(ymin=L, ymax=R), width=.2,
@@ -632,8 +651,89 @@ ncs <- Nat_Cov_Stats %>%
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank(),
         legend.title = element_blank())
-ncs
+
 #ggsave(here("figs", "bar_mean_cov_chg_nativity.png"))  
+
+
+#........JITTER PLOT ----
+
+# Jitter plot change (stand alone)
+Nat_Cov_Chg %>%
+  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg)) +
+  geom_jitter(width = 0.05) +
+  geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
+  stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
+  facet_grid(vars(Strata), vars(Nativity))  
+
+# Calculate range for tot_pct_cov_chg so that it can be plotted correctly in Jitter plot.
+Nat_Cov_Chg_range <- Nat_Cov_Chg %>%
+  group_by(Sampling_Frame, Nativity, Strata) %>%
+  summarize(y_range = max(abs(tot_pct_cov_chg))) %>%
+  ungroup()
+# Add range column to Chg dataset  
+Nat_Cov_Chg <- Nat_Cov_Chg %>%
+  inner_join(Nat_Cov_Chg_range)
+
+# Jitter plot change (for multichart)
+Nat_Cov_jitter <- Nat_Cov_Chg %>%
+  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg, label = Plot_Number)) +
+  geom_blank(aes(y = y_range)) +
+  geom_blank(aes(y = -y_range)) +
+  geom_hline(yintercept=0.0, linetype = "dashed", color = "gray", size = 1) +
+  geom_jitter(width = 0.05) + 
+  stat_summary(fun = median, geom = "point", shape = 95, size = 8, color = "red") +
+  labs(y = "Change (% Cover)") +
+  facet_wrap(vars(Strata, Nativity), nrow = 1, scales = "free") +
+  # geom_text_repel(force=1, point.padding=unit(1,'lines'),
+  #                 hjust=1, size = 3,
+  #                 direction='x',
+  #                 nudge_y=0.1,
+  #                 segment.size=0.7) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+Nat_Cov_jitter
+
+#........STRIP CHRT PAIR -----
+
+Nat_Cov %>%
+  #mutate(Status = fct_rev(Status)) %>%
+  ggplot(aes(x=S_Cycle, y=tot_pct_cov, group=Plot_Number)) +
+  geom_line(size=1, alpha=0.5, position=position_dodge(width=0.2)) +
+  geom_point(position=position_dodge(width=0.2)) +
+  xlab('Sample Cycle') +
+  ylab('Total % Cover') +
+  #scale_fill_brewer(palette="Accent") +
+  #scale_color_brewer(palette="Accent") + 
+  #theme_bw() +
+  facet_grid(cols = vars(Nativity), rows = vars(Strata))
+
+Nat_Cov_Chg %>%
+  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg)) +
+  geom_jitter(width = 0.05) +
+  geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
+  stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
+  facet_grid(vars(Strata), vars(Nativity))  
+
+p1 <- Spp_Dens %>%
+  select(-count_pp) %>%
+  ungroup() %>%
+  mutate(S_Year = as.factor(S_Year)) %>%
+  complete(nesting(S_Cycle, S_Year), # Complete a data frame with missing combinations of factors 
+           # nesting = find only the combinations that occur in the selected factors
+           Sampling_Frame, Name, Code, nesting(Life_Form, Size), Plot, Status,
+           fill = list(count_ha = 0)) %>%
+  ggplot(aes(x=S_Year, y=count_ha, group=Plot)) +
+  geom_line(size=1, alpha=0.5, position=position_dodge(width=0.2)) +
+  geom_point(position=position_dodge(width=0.2)) +
+  xlab('') +
+  ylab('Live trees / ha') +
+  facet_wrap(vars(Life_Form), scales = "free", nrow = 1)
+p1
+
+grid.arrange(p1, p2, nrow = 2, top = "Bruguiera  gymnorrhiza" 
+             #heights = c(2, 1.5)
+)
 
 
 #.-----------------------------------------------------
@@ -645,6 +745,8 @@ Nat_Rich <- Cover %>%
   summarise(richness = n_distinct(Code))
 
 #........STRIP CHRT PAIR -----
+
+
 Nat_Rich %>%
   #mutate(Status = fct_rev(Status)) %>%
   ggplot(aes(x=S_Cycle, y=richness, group=Plot_Number)) +
@@ -1129,6 +1231,23 @@ tree.plot <- ggplot(Spp_Hits, aes(area = tot_hits, subgroup = Nativity,
 tree.plot #if this throws "Error in 1:row_n : argument of length 0", than check
 # for NA's in the dataset. 
 
+# Add lifeforms to treemap
+tree.plot2 <- ggplot(Spp_Hits, aes(area = tot_hits, subgroup = Nativity, 
+                                  subgroup2 = Life_form, fill = Nativity, label = Name)) +
+  geom_treemap(size = 1) +
+  geom_treemap_subgroup_border(colour = "gray30", size = 5, alpha = 0.5) +
+  geom_treemap_subgroup2_border(colour = "black", size = 3) +
+  geom_treemap_text(fontface = "italic", colour = "white", place = "middle",
+                    grow = F, reflow = T, min.size = 5) +
+  geom_treemap_subgroup2_text(
+    colour = "black",alpha = 1, fontface = "italic", 
+    size = 10, place = "bottomright") +
+  scale_fill_brewer(palette="Dark2") +
+  theme(legend.position="bottom", legend.title = element_blank())
+
+tree.plot2 #if this throws "Error in 1:row_n : argument of length 0", than check
+# for NA's in the dataset. 
+
 png(here("figures","tree_plot_230x160r180.png"), width = 230, height = 160, 
     units = 'mm', res = 180)
 plot(tree.plot)
@@ -1254,8 +1373,8 @@ ggplot(Spp_Slope_X) +
   facet_grid(vars(Strata), vars(Plot), labeller = label_both) +
   geom_text_repel(label=Spp_Slope_X$code_lab,
                   y=Spp_Slope_X$`1`, x=rep(1, NROW(Spp_Slope_X)), hjust=1.1, size=3, direction = "y") +
-  geom_text(label="2014", x=1, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=1.2, size=4.5) +
-  geom_text(label="2019", x=2, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=-0.1, size=4.5) +
+  geom_text(label="2012", x=1, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=1.2, size=4.5) +
+  geom_text(label="2017", x=2, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=-0.1, size=4.5) +
   guides(color=guide_legend("")) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
   theme(axis.ticks = element_blank(),axis.text.x = element_blank()) +

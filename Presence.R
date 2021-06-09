@@ -3,12 +3,12 @@
 ##...US National Park Service........................##
 ##...Pacific Island Inventory & Monitoring Network...##
 ##...................................................##
-##...Jacob Gross 01/22/2021..........................##
+##...Jacob Gross 06/09/2021..........................##
 ##...................................................##
 ##...Briefing report.................................##
 ##...FTPC - Focal Terrestrial Plant Communities......##
 ##...................................................##
-##....... Understory Cover Stats and Graphs..........##
+##....... Species Presence ..........................##
 ##...................................................##
 
 
@@ -105,7 +105,7 @@ print(DB_download)
 
 
 # Read tables
-Presence <- read_csv(here("data/FTPC_Export", DB_download, "Presence.csv"))
+Presence_raw <- read_csv(here("data/FTPC_Export", DB_download, "Presence.csv"))
 Event <- read_csv(here("data/FTPC_Export", DB_download, "Event.csv"))
 
 # Add folders for tables (tbls) and figures (figs), if not already created.
@@ -135,4 +135,42 @@ Event_filter <- site.filter(Event, uc, c, sf) %>%
          Plot_Type, Plot_Number, Plot_ID, Event_ID)
 
 
-Presence_filter <- site.filter(Presence, uc, c, sf)
+Presence_filter <- site.filter(Presence_raw, uc, c, sf)
+
+
+Presence <- Presence_filter %>%
+  select(S_Cycle, Unit_Code, Community, Sampling_Frame, Plot_Number, Plot_Type, 
+         Nativity, Distribution, Life_form, 
+         Order, Family, Genus, cf, Species, Name, Subdivision, Code, Park_common_name,
+         Fruit_Flower, Dead, Outside_Plot)
+
+#.-----------------------------------------------------
+#   Dataset Fixes---- 
+#.......................................................
+
+# None, add here if needed.
+
+
+
+# "Presence" ----
+# Dataset is ready for analysis
+  
+sixcode_matches <- Presence %>%
+  group_by(Code, Name, Subdivision) %>%
+  summarise(n = n()) %>%
+  mutate(sixcode = str_sub(Code, 1, 6)) #%>%
+  group_by(sixcode) %>%
+  filter(n()>1)
+  
+  
+  
+
+
+
+
+
+
+
+
+
+

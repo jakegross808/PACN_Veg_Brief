@@ -3,7 +3,7 @@
 ##...US National Park Service........................##
 ##...Pacific Island Inventory & Monitoring Network...##
 ##...................................................##
-##...J. Gross & L. Moore 04/30/2021..................##
+##...J. Gross & L. Moore 06/09/2021..................##
 ##...................................................##
 ##...Briefing report.................................##
 ##...FTPC - Focal Terrestrial Plant Communities......##
@@ -465,6 +465,15 @@ Tot_Cov_Chg %>%
   xlab("Plot Number") + ylab("Change in Total % Cover") +
   theme(legend.position = "none")
 
+# Calculate range for count_ha_chg so that it can be plotted correctly in Jitter plot.
+Tot_Cov_Chg_range <- Tot_Cov_Chg %>%
+  group_by(Sampling_Frame, Strata) %>%
+  summarize(y_range = max(abs(tot_pct_cov_chg))) %>%
+  ungroup()
+# Add range column to Chg dataset  
+Tot_Cov_Chg <- Tot_Cov_Chg %>%
+  inner_join(Tot_Cov_Chg_range)
+
 #........PAIRED PLOT ----
 Tot_Cov %>%
   #mutate(Status = fct_rev(Status)) %>%
@@ -509,6 +518,48 @@ Tot_Cov_Stats %>%
   labs(y = "Total % Cover", x = "Sample Cycle") +
   scale_fill_brewer(palette="Accent") +
   facet_grid(rows = vars(Strata), cols = vars(Sampling_Frame))
+
+#........JITTER PLOT ----
+# Total Cover Change jitter plot
+p2 <- Tot_Cov_Chg %>%
+  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg, label = Plot_Number)) +
+  geom_blank(aes(y = y_range)) +
+  geom_blank(aes(y = -y_range)) +
+  geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
+  geom_jitter(width = 0.05) + 
+  stat_summary(fun = median, geom = "point", shape = 95, size = 8, color = "red") +
+  labs(y = "Change (% Cover)") +
+  facet_wrap(vars(Strata), nrow = 1, scales = "free") +
+  # geom_text_repel(force=1, point.padding=unit(1,'lines'),
+  #                 hjust=1, size = 3,
+  #                 direction='x',
+  #                 nudge_y=0.1,
+  #                 segment.size=0.7) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+p2
+
+#........STRIP CHRT PAIR -----
+p1 <- Tot_Cov %>%
+  #select(-count_pp) %>%
+  ungroup() %>%
+  #mutate(S_Year = as.factor(S_Year)) %>%
+  complete(nesting(S_Cycle), # Complete a data frame with missing combinations of factors 
+           # nesting = find only the combinations that occur in the selected factors
+           Sampling_Frame, nesting(Strata), Plot_Number,
+           fill = list(tot_pct_cov = 0)) %>%
+  ggplot(aes(x=S_Cycle, y=tot_pct_cov, group=Plot_Number)) +
+  geom_line(size=1, alpha=0.5, position=position_dodge(width=0.2)) +
+  geom_point(position=position_dodge(width=0.2)) +
+  xlab('') +
+  ylab('% Cover') +
+  facet_wrap(vars(Strata), scales = "free", nrow = 1)
+p1
+
+grid.arrange(p1, p2, nrow = 2, top = "Total Cover" 
+             #heights = c(2, 1.5)
+)
 
 # ....... Bar: SF compare % cover ----
 #' *notes*

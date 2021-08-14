@@ -763,7 +763,7 @@ Nat_Cov_strip <- Nat_Cov %>%
 Nat_Cov_strip
 
 #........STRIP/JITTER MULTI -----
-grid.arrange(Nat_Cov_strip, Nat_Cov_jitter, nrow = 2, top = "Nativity Cover" 
+grid.arrange(Nat_Cov_strip, Nat_Cov_Chg_jitter, nrow = 2, top = "Nativity Cover" 
              #heights = c(2, 1.5)
 )
 

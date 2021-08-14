@@ -557,6 +557,7 @@ p1 <- Tot_Cov %>%
   facet_wrap(vars(Strata), scales = "free", nrow = 1)
 p1
 
+#........STRIP/JITTER MULTI -----
 grid.arrange(p1, p2, nrow = 2, top = "Total Cover" 
              #heights = c(2, 1.5)
 )
@@ -716,7 +717,7 @@ Nat_Cov_Chg %>%
   stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
   facet_grid(vars(Strata), vars(Nativity))  
 
-# Calculate range for tot_pct_cov_chg so that it can be plotted correctly in Jitter plot.
+# Calculate range for nat__cov_chg so that zeros will line up.
 Nat_Cov_Chg_range <- Nat_Cov_Chg %>%
   group_by(Sampling_Frame, Nativity, Strata) %>%
   summarize(y_range = max(abs(tot_pct_cov_chg))) %>%
@@ -726,7 +727,7 @@ Nat_Cov_Chg <- Nat_Cov_Chg %>%
   inner_join(Nat_Cov_Chg_range)
 
 # Jitter plot change (for multichart)
-Nat_Cov_jitter <- Nat_Cov_Chg %>%
+Nat_Cov_Chg_jitter <- Nat_Cov_Chg %>%
   ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg, label = Plot_Number)) +
   geom_blank(aes(y = y_range)) +
   geom_blank(aes(y = -y_range)) +
@@ -743,11 +744,11 @@ Nat_Cov_jitter <- Nat_Cov_Chg %>%
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank())
-Nat_Cov_jitter
+Nat_Cov_Chg_jitter
 
 #........STRIP CHRT PAIR -----
 
-Nat_Cov %>%
+Nat_Cov_strip <- Nat_Cov %>%
   #mutate(Status = fct_rev(Status)) %>%
   ggplot(aes(x=S_Cycle, y=tot_pct_cov, group=Plot_Number)) +
   geom_line(size=1, alpha=0.5, position=position_dodge(width=0.2)) +
@@ -757,34 +758,15 @@ Nat_Cov %>%
   #scale_fill_brewer(palette="Accent") +
   #scale_color_brewer(palette="Accent") + 
   #theme_bw() +
-  facet_grid(cols = vars(Nativity), rows = vars(Strata))
+  facet_wrap(vars(Strata, Nativity), nrow = 1, scales = "free")
+  #facet_grid(cols = vars(Nativity), rows = vars(Strata))
+Nat_Cov_strip
 
-Nat_Cov_Chg %>%
-  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg)) +
-  geom_jitter(width = 0.05) +
-  geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
-  stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
-  facet_grid(vars(Strata), vars(Nativity))  
-
-p1 <- Spp_Dens %>%
-  select(-count_pp) %>%
-  ungroup() %>%
-  mutate(S_Year = as.factor(S_Year)) %>%
-  complete(nesting(S_Cycle, S_Year), # Complete a data frame with missing combinations of factors 
-           # nesting = find only the combinations that occur in the selected factors
-           Sampling_Frame, Name, Code, nesting(Life_Form, Size), Plot, Status,
-           fill = list(count_ha = 0)) %>%
-  ggplot(aes(x=S_Year, y=count_ha, group=Plot)) +
-  geom_line(size=1, alpha=0.5, position=position_dodge(width=0.2)) +
-  geom_point(position=position_dodge(width=0.2)) +
-  xlab('') +
-  ylab('Live trees / ha') +
-  facet_wrap(vars(Life_Form), scales = "free", nrow = 1)
-p1
-
-grid.arrange(p1, p2, nrow = 2, top = "Bruguiera  gymnorrhiza" 
+#........STRIP/JITTER MULTI -----
+grid.arrange(Nat_Cov_strip, Nat_Cov_jitter, nrow = 2, top = "Nativity Cover" 
              #heights = c(2, 1.5)
 )
+
 
 
 #.-----------------------------------------------------
@@ -896,6 +878,7 @@ nrs
 #.......................................................
 #'* Optional Filter  * 
  Forms_Cov_Filter <- Cover %>%
+  # Take 'Nativity' and 'Life_form' to make plural category (ex. 'Native Shrubs') 
    mutate(NLF = paste0(Nativity, " ", Life_form, "s")) #%>%
 #   filter(Plot_Number %in% c(2,4,6,9)) %>%
 #   filter(Nativity != "Unknown")
@@ -988,7 +971,10 @@ Forms_Cov_Chg %>%
   geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
   stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
   facet_grid(vars(Strata), vars(Life_form)) +
-  scale_color_brewer(palette="Dark2") 
+  scale_color_brewer(palette="Dark2") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
 
 
 #........STRIP CHRT PAIR -----
@@ -1299,10 +1285,10 @@ tree.plot2 <- ggplot(Spp_Hits, aes(area = tot_hits, subgroup = Nativity,
 tree.plot2 #if this throws "Error in 1:row_n : argument of length 0", than check
 # for NA's in the dataset. 
 
-png(here("figures","tree_plot_230x160r180.png"), width = 230, height = 160, 
-    units = 'mm', res = 180)
-plot(tree.plot)
-dev.off()
+#png(here("figures","tree_plot_230x160r180.png"), width = 230, height = 160, 
+#    units = 'mm', res = 180)
+#plot(tree.plot)
+#dev.off()
 
 # # Average Cover Treemap
 # Spp_Cov %>%

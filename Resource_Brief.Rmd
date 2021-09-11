@@ -1,0 +1,37 @@
+---
+title: "Vegetation Monitoring at Haleakala National Park: Subalpine Shrubland Plant Community 2012 and 2017"
+author: "Pacific Island Network"
+date: "9/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background
+
+The Pacific Island Inventory and Monitoring Network (PACN) monitors subalpine shrubland plant communities occurring along the slopes of Haleakala and Mauna Loa in Hawaii. This brief focuses on the Haleakala sampling frame which includes 4460 ha and consists of generally vegetated sites above 1980 m encompassing Haleakala summit, the park visitor center, headquarters, and several hiking trails open to the public (Figure 1).
+
+```{r echo=FALSE}
+leaflet(plots.xy) %>% 
+  addProviderTiles(providers$OpenTopoMap) %>%
+  addCircleMarkers(
+    radius = 8,
+    color = "navy",
+    stroke = FALSE, fillOpacity = 0.4,
+    label = plots.xy$Plot_Number,
+    labelOptions = labelOptions(noHide = T, 
+                                direction = "center", 
+                                textOnly = T,
+                                style = list("color" = "white"))
+  )
+```
+
+## Methods
+
+Understory Cover: Plant species understory cover was sampled within 50 x 20 m plots. Two height layers were recorded: 0-1 m from ground (UNDERSTORY1) and 1-2 m from ground (UNDERSTORY2). Cover data was collected using the pole-intercept method (Ainsworth et al. 2011).
+ 
+• Invasive Plant Transects: Additional data on non-native plants were collected using frequency of occurrence along 1000 m transects (Ainsworth et al. 2012).
+
+• Fixed plots & transects are monitored every cycle. Not all fixed plots and transects were visited the first year (2010). Only fixed plots that were visited both years were used in this briefing report (Figure 1).

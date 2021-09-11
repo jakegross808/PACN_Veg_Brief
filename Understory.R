@@ -212,6 +212,50 @@ Cover_Fixed <- bind_rows(UNDERSTORY2 = Cov_Fixed_High,
          Transect, Point, Strata, Nativity, Life_form, Code, Name,
          Center_X_Coord, Center_Y_Coord, UTM_Zone, Datum)
 
+#.-----------------------------------------------------
+#   Leaflet ---- 
+#.......................................................
+
+# Cover currently only has UTM coordinates so have to convert to lat long-----
+library(leaflet)
+library(terra)
+
+points <- Cover_Fixed %>%
+  select(Plot_Number, Center_X_Coord, Center_Y_Coord) %>%
+  rename(x = Center_X_Coord) %>%
+  rename(y = Center_Y_Coord) %>%
+  distinct() 
+
+points.matrix <- points %>%
+  select(-Plot_Number) 
+
+points.matrix <- as.matrix(points.matrix)   
+v <- vect(points.matrix, crs="+proj=utm +zone=04 +datum=NAD83  +units=m")
+y <- project(v, "+proj=longlat +datum=WGS84")
+
+
+plots.xy <- geom(y)[, c("x", "y")]
+
+plots.xy <- as_tibble(plots.xy) %>%
+  bind_cols(points) %>%
+  rename(lng = x...1) %>%
+  rename(lat = y...2)
+  
+#------------------------------------------------------------------------
+
+leaflet(plots.xy) %>% 
+  addProviderTiles(providers$OpenTopoMap) %>%
+  addCircleMarkers(
+    radius = 8,
+    color = "navy",
+    stroke = FALSE, fillOpacity = 0.4,
+    label = plots.xy$Plot_Number,
+    labelOptions = labelOptions(noHide = T, 
+                                direction = "center", 
+                                textOnly = T,
+                                style = list("color" = "white"))
+  )
+
 #.......................................................
 #   Lump Spp & Update Spp Info---- 
 #....................................................... 

@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 The Pacific Island Inventory and Monitoring Network (PACN) monitors subalpine shrubland plant communities occurring along the slopes of Haleakala and Mauna Loa in Hawaii. This brief focuses on the Haleakala sampling frame which includes 4460 ha and consists of generally vegetated sites above 1980 m encompassing Haleakala summit, the park visitor center, headquarters, and several hiking trails open to the public (Figure 1).
 
-```{r echo=FALSE}
+```{r sampling map, echo=FALSE, message=FALSE, warning=FALSE}
 leaflet(plots.xy) %>% 
   addProviderTiles(providers$OpenTopoMap) %>%
   addCircleMarkers(
@@ -30,8 +30,40 @@ leaflet(plots.xy) %>%
 
 ## Methods
 
-Understory Cover: Plant species understory cover was sampled within 50 x 20 m plots. Two height layers were recorded: 0-1 m from ground (UNDERSTORY1) and 1-2 m from ground (UNDERSTORY2). Cover data was collected using the pole-intercept method (Ainsworth et al. 2011).
- 
-• Invasive Plant Transects: Additional data on non-native plants were collected using frequency of occurrence along 1000 m transects (Ainsworth et al. 2012).
+15 fixed plots and ?? fixed transects were monitored in 2012 and again in 2017.
 
-• Fixed plots & transects are monitored every cycle. Not all fixed plots and transects were visited the first year (2010). Only fixed plots that were visited both years were used in this briefing report (Figure 1).
+-   Understory Cover: Plant species understory cover was sampled within 50 x 20 m plots. Two height layers were recorded: 0-1 m from ground (UNDERSTORY1) and 1-2 m from ground (UNDERSTORY2). Cover data was collected using the pole-intercept method (Ainsworth et al. 2011).
+
+-   Invasive Plant Transects: Additional data on non-native plants were collected using frequency of occurrence along 500 m transects (Ainsworth et al. 2012).
+
+## Results
+
+## Summary
+
+## References
+
+| [Ainsworth, A., J. D. Jacobi, R. K. Loh, J. A. Christian,](https://irma.nps.gov/DataStore/DownloadFile/448810)
+| [C. Yanger, and P. Berkowitz. 2012. Established](https://irma.nps.gov/DataStore/DownloadFile/448810)
+| [invasive plant species monitoring protocol: Pacific](https://irma.nps.gov/DataStore/DownloadFile/448810)
+| [Island Network. Natural Resource Report NPS/](https://irma.nps.gov/DataStore/DownloadFile/448810)
+| [PACN/NRR---2012/514. National Park Service, Fort](https://irma.nps.gov/DataStore/DownloadFile/448810)
+| [Collins, Colorado.](https://irma.nps.gov/DataStore/DownloadFile/448810)
+| 
+
+| [Ainsworth, A., Berkowitz, P., Jacobi, J. D., Loh, R.](https://irma.nps.gov/DataStore/DownloadFile/429572)
+| [K., & Kozar, K. 2011. Focal Terrestrial Plant](https://irma.nps.gov/DataStore/DownloadFile/429572)
+| [Communities Monitoring Protocol: Pacific Island](https://irma.nps.gov/DataStore/DownloadFile/429572)
+| [Network. Natural Resource Report](https://irma.nps.gov/DataStore/DownloadFile/429572)
+| [NPS/PACN/NRR---2011/410. National Park Service,](https://irma.nps.gov/DataStore/DownloadFile/429572)
+| [Fort Collins, Colorado.](https://irma.nps.gov/DataStore/DownloadFile/429572)
+
+## More Information
+
+| Ryan Monello, PACN I&M Program Manager
+| ryan_monello\@nps.gov, 808-985-6183
+| 
+| Jacob Gross, Botanist
+| Jacob_Gross\@nps.gov, 808-985-6187
+| 
+| [Vital Signs: Pacific Island Inventory & Monitoring Network](https://www.nps.gov/im/pacn/monitoring.htm)
+| [Reports & Publications (U.S. National Park Service) (nps.gov)](https://www.nps.gov/im/pacn/reports-publications.htm)

@@ -3,7 +3,7 @@
 ##...US National Park Service........................##
 ##...Pacific Island Inventory & Monitoring Network...##
 ##...................................................##
-##...Jacob Gross 01/22/2021..........................##
+##...J. Gross & L. Moore 06/09/2021..................##
 ##...................................................##
 ##...Briefing report.................................##
 ##...FTPC - Focal Terrestrial Plant Communities......##
@@ -12,7 +12,10 @@
 ##...................................................##
 
 
-## Used "01_FTPC_DB_20201203.r" to prepare .csv files
+#'* NOTE - Before running this script for first time: * 
+#'* Export FTPC data from database using script 01_FTPC_DB_YYYYMMDD *
+#'* All PACN vegetation R scrips are located on I drive: *
+#'* 'I:\vital_signs\05_focal_terr_plant_communities\Documents\R_scripts' *
 
 
 #.-----------------------------------------------------
@@ -122,13 +125,13 @@ dir.create(figs, showWarnings = FALSE)
 #.......................................................
 # User selected subsets
 levels(as.factor(Event$Unit_Code))
-uc <- "AMME"
+uc <- "HALE"
 
 levels(as.factor(Event$Community))
 c <- "All"
 
 levels(as.factor(Event$Sampling_Frame))
-sf <- "All"
+sf <- "Subalpine Shrubland"
 
 
 Event_filter <- site.filter(Event, uc, c, sf) %>%
@@ -209,13 +212,58 @@ Cover_Fixed <- bind_rows(UNDERSTORY2 = Cov_Fixed_High,
          Transect, Point, Strata, Nativity, Life_form, Code, Name,
          Center_X_Coord, Center_Y_Coord, UTM_Zone, Datum)
 
+#.-----------------------------------------------------
+#   Leaflet ---- 
+#.......................................................
+
+# Cover currently only has UTM coordinates so have to convert to lat long-----
+library(leaflet)
+library(terra)
+
+points <- Cover_Fixed %>%
+  select(Plot_Number, Center_X_Coord, Center_Y_Coord) %>%
+  rename(x = Center_X_Coord) %>%
+  rename(y = Center_Y_Coord) %>%
+  distinct() 
+
+points.matrix <- points %>%
+  select(-Plot_Number) 
+
+points.matrix <- as.matrix(points.matrix)   
+v <- vect(points.matrix, crs="+proj=utm +zone=04 +datum=NAD83  +units=m")
+y <- project(v, "+proj=longlat +datum=WGS84")
+
+
+plots.xy <- geom(y)[, c("x", "y")]
+
+plots.xy <- as_tibble(plots.xy) %>%
+  bind_cols(points) %>%
+  rename(lng = x...1) %>%
+  rename(lat = y...2)
+  
+#------------------------------------------------------------------------
+
+leaflet(plots.xy) %>% 
+  addProviderTiles(providers$OpenTopoMap) %>%
+  addCircleMarkers(
+    radius = 8,
+    color = "navy",
+    stroke = FALSE, fillOpacity = 0.4,
+    label = plots.xy$Plot_Number,
+    labelOptions = labelOptions(noHide = T, 
+                                direction = "center", 
+                                textOnly = T,
+                                style = list("color" = "white"))
+  )
+
 #.......................................................
 #   Lump Spp & Update Spp Info---- 
 #....................................................... 
 
 Cover <- Cover_Fixed
 
-# If IDs are uncertain for some species lump by "Code" here:
+#'* If IDs are uncertain for some species lump by "Code" here: *
+
 # Check Codes/Species
 table(Cover_Fixed$Code)
 table(Cover_Fixed$Name)
@@ -226,31 +274,41 @@ name_code <- Cover %>%
   summarize(n = n())
 
 
-Cover <- Cover %>%
+#Cover <- Cover %>%
   # Lifeforms:
   #mutate(Life_form=replace(Life_form, Code=="CIBSP.", "Tree Fern")) %>%
   
-  # Species:
-  # Epipremnum pinnatum is accepted name ITIS, Bishop, and is introduced/naturalized (cultivar Aureum which originated in the Solomon Islands? (Wagner))  
-  mutate(Code=replace(Code, Code=="EPISP.", "EPIPIN")) %>%
-  mutate(Name=replace(Name, Name=="Epipremnum  sp.", "Epipremnum pinnatum")) %>%
-  # The majority of Mucuna sp. is likely 'M. ginantea', but other spp. are possible. 
-  mutate(Code=replace(Code, Code=="MUCSPP", "MUCGIG2")) %>%
-  mutate(Name=replace(Name, Name=="Mucuna  gigantea", "Mucuna  sp.")) %>%
-  # The majority of Ipomoea sp. is likely 'I. violacea', but other spp. are possible. 
-  mutate(Code=replace(Code, Code=="IPOVIO", "IPOSP.")) %>%
-  mutate(Name=replace(Name, Name=="Ipomoea  violacea", "Ipomoea  sp.")) %>%
-  # The majority of Ficus sp. is likely 'F. prolixa' & 'F.tinctoria, but other spp. are possible. 
-  mutate(Code=replace(Code, Code=="FICPRO", "FICSP.")) %>%
-  mutate(Name=replace(Name, Name=="Ficus  prolixa", "Ficus  sp.")) %>%
-  mutate(Code=replace(Code, Code=="FICTIN1", "FICSP.")) %>%
-  mutate(Name=replace(Name, Name=="Ficus  tinctoria", "Ficus  sp.")) %>%
-  # The majority of Nephrolepis sp. is likely 'N. hirsutula', but other spp. are possible. 
-  mutate(Code=replace(Code, Code=="NEPHIR", "NEPSP.")) %>%
-  mutate(Name=replace(Name, Name=="Nephrolepis  hirsutula", "Nephrolepis  sp.")) 
+  # # Species:
+  # # Epipremnum pinnatum is accepted name ITIS, Bishop, and is introduced/naturalized (cultivar Aureum which originated in the Solomon Islands? (Wagner))  
+  # mutate(Code=replace(Code, Code=="EPISP.", "EPIPIN")) %>%
+  # mutate(Name=replace(Name, Name=="Epipremnum  sp.", "Epipremnum pinnatum")) %>%
+  # # The majority of Mucuna sp. is likely 'M. ginantea', but other spp. are possible. 
+  # mutate(Code=replace(Code, Code=="MUCSPP", "MUCGIG2")) %>%
+  # mutate(Name=replace(Name, Name=="Mucuna  gigantea", "Mucuna  sp.")) %>%
+  # # The majority of Ipomoea sp. is likely 'I. violacea', but other spp. are possible. 
+  # mutate(Code=replace(Code, Code=="IPOVIO", "IPOSP.")) %>%
+  # mutate(Name=replace(Name, Name=="Ipomoea  violacea", "Ipomoea  sp.")) %>%
+  # # The majority of Ficus sp. is likely 'F. prolixa' & 'F.tinctoria, but other spp. are possible. 
+  # mutate(Code=replace(Code, Code=="FICPRO", "FICSP.")) %>%
+  # mutate(Name=replace(Name, Name=="Ficus  prolixa", "Ficus  sp.")) %>%
+  # mutate(Code=replace(Code, Code=="FICTIN1", "FICSP.")) %>%
+  # mutate(Name=replace(Name, Name=="Ficus  tinctoria", "Ficus  sp.")) %>%
+  # # The majority of Nephrolepis sp. is likely 'N. hirsutula', but other spp. are possible. 
+  # mutate(Code=replace(Code, Code=="NEPHIR", "NEPSP.")) %>%
+  # mutate(Name=replace(Name, Name=="Nephrolepis  hirsutula", "Nephrolepis  sp.")) 
   
-#   
-# Cover <- Cover %>%
+   
+ Cover <- Cover %>%
+   # Change Code column: "FESRUB" to "POAPRA" (Cycle 1 only)
+   mutate(Code = case_when(
+     Code == "FESRUB" & S_Cycle == 1 & Plot_Number == 3 ~ "POAPRA",
+     TRUE ~ Code)) %>%
+   # Change Name column: "Festuca  rubra" to "Poa  pratensis" (Cycle 1 only)
+   mutate(Name = case_when(
+     Name == "Festuca  rubra" & S_Cycle == 1 & Plot_Number == 3 ~ "Poa  pratensis",
+     TRUE ~ Name)) 
+   
+ 
 #   mutate(Code=replace(Code, Code=="SADSOU", "SADSP.")) %>%
 #   mutate(Name=replace(Name, Name=="Sadleria  souleyetiana", "Sadleria  sp.")) %>%
 #   mutate(Code=replace(Code, Code=="SADCYA", "SADSP.")) %>%
@@ -292,8 +350,8 @@ Cover <- Cover %>%
 #   Remove Nativity Unknown?---- 
 #.......................................................
 
-# Decide if it is appropriate or not to remove records that 
-# show Nativity == Unknown
+#'*If appropriate, remove records that show Nativity == Unknown*
+ 
 table(Cover$Nativity)
 
 # Display "Unknown" Nativity species
@@ -310,34 +368,57 @@ Cover %>%
 # If Nativity is wrong update here:
 
 Cover <- Cover %>%
-  #Non-natives:
-  mutate(Nativity=replace(Nativity, Name=="Epipremnum pinnatum", "Non-Native")) %>%
-  mutate(Nativity=replace(Nativity, Name=="Stachytarpheta  sp.", "Non-Native")) %>%
-  #Natives:
-  mutate(Nativity=replace(Nativity, Name=="Hernandia  sp.", "Native")) %>%
-  mutate(Nativity=replace(Nativity, Name=="Ipomoea  sp.", "Native")) %>%
-  mutate(Nativity=replace(Nativity, Name=="Nephrolepis  sp.", "Native")) %>%
-  mutate(Nativity=replace(Nativity, Name=="Thelypteris sp.", "Native")) %>%
-  mutate(Nativity=replace(Nativity, Name=="Mucuna  sp.", "Native")) %>%
-  mutate(Nativity=replace(Nativity, Name=="Ficus  sp.", "Native"))
+  # #Non-natives:
+   mutate(Nativity=replace(Nativity, Code=="Unk_Grass1", "Non-Native")) #%>%
+  # mutate(Nativity=replace(Nativity, Name=="Epipremnum pinnatum", "Non-Native")) %>% 
+  # mutate(Nativity=replace(Nativity, Name=="Stachytarpheta  sp.", "Non-Native")) %>%
+  # #Natives:
+  # mutate(Nativity=replace(Nativity, Name=="Hernandia  sp.", "Native")) %>%
+  # mutate(Nativity=replace(Nativity, Name=="Ipomoea  sp.", "Native")) %>%
+  # mutate(Nativity=replace(Nativity, Name=="Nephrolepis  sp.", "Native")) %>%
+  # mutate(Nativity=replace(Nativity, Name=="Thelypteris sp.", "Native")) %>%
+  # mutate(Nativity=replace(Nativity, Name=="Mucuna  sp.", "Native")) %>%
+  # mutate(Nativity=replace(Nativity, Name=="Ficus  sp.", "Native"))
 
 # Lifeform updates:
 Cover %>%
   group_by(Life_form, Nativity) %>%
   summarize(n = n())
 
-lf.update <- read_csv(here("data", "AMME_lifeform_update.csv")) %>%
-  mutate(LF_update = Life_form) %>%
-  select(-Name, -n, -Life_form) 
+Cover %>%
+  filter(is.na(Life_form)) %>%
+  group_by(Name, Code) %>%
+  summarize(n = n())
 
-Cover <- Cover %>% 
-  left_join(lf.update, by = "Code") %>%
-  mutate(Life_form = case_when(is.na(Life_form) ~ LF_update,
-                               TRUE ~ Life_form))
+Cover <- Cover %>%
+  mutate(Life_form=replace(Life_form, Code=="PINPAT", "Tree")) %>%
+  mutate(Life_form=replace(Life_form, Code=="RYTSEM", "Grass")) %>%
+  mutate(Life_form=replace(Life_form, Code=="SANHAL", "Tree"))
+
+# lf.update <- read_csv(here("data", "AMME_lifeform_update.csv")) %>%
+#   mutate(LF_update = Life_form) %>%
+#   select(-Name, -n, -Life_form) 
+
+# Cover <- Cover %>% 
+#   left_join(lf.update, by = "Code") %>%
+#   mutate(Life_form = case_when(is.na(Life_form) ~ LF_update,
+#                                TRUE ~ Life_form))
 
 Cover %>%
   group_by(Life_form, Nativity) %>%
   summarize(n = n())
+
+
+# NA updates:
+Cover %>%
+  filter(is.na(Nativity)) 
+
+Cover <- Cover %>%
+  drop_na(Transect)
+
+Cover %>%
+  filter(is.na(Nativity)) 
+
 # "Cover" ----
 # Dataset is ready for analysis
 
@@ -428,6 +509,38 @@ Tot_Cov_Chg %>%
   xlab("Plot Number") + ylab("Change in Total % Cover") +
   theme(legend.position = "none")
 
+# Calculate range for count_ha_chg so that it can be plotted correctly in Jitter plot.
+Tot_Cov_Chg_range <- Tot_Cov_Chg %>%
+  group_by(Sampling_Frame, Strata) %>%
+  summarize(y_range = max(abs(tot_pct_cov_chg))) %>%
+  ungroup()
+# Add range column to Chg dataset  
+Tot_Cov_Chg <- Tot_Cov_Chg %>%
+  inner_join(Tot_Cov_Chg_range)
+
+#........PAIRED PLOT ----
+Tot_Cov %>%
+  #mutate(Status = fct_rev(Status)) %>%
+  ggplot(aes(x=S_Cycle, y=tot_pct_cov, group=Plot_Number)) +
+  geom_line(size=1, alpha=0.5, position=position_dodge(width=0.2)) +
+  geom_point(position=position_dodge(width=0.2)) +
+  xlab('Sample Cycle') +
+  ylab('Total % Cover') +
+  #scale_fill_brewer(palette="Accent") +
+  #scale_color_brewer(palette="Accent") + 
+  #theme_bw() +
+  facet_grid(rows = vars(Strata))
+
+#........JITTER PLOT ----
+# Total Cover Change jitter plot
+Tot_Cov_Chg %>%
+  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg)) +
+  geom_jitter(width = 0.05) +
+  geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
+  stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
+  labs(x = "", y = "Change in % Cover") +
+  facet_wrap(vars(Strata), dir = "v") 
+
 
 # Summary Stats ----
 
@@ -449,6 +562,49 @@ Tot_Cov_Stats %>%
   labs(y = "Total % Cover", x = "Sample Cycle") +
   scale_fill_brewer(palette="Accent") +
   facet_grid(rows = vars(Strata), cols = vars(Sampling_Frame))
+
+#........JITTER PLOT ----
+# Total Cover Change jitter plot
+p2 <- Tot_Cov_Chg %>%
+  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg, label = Plot_Number)) +
+  geom_blank(aes(y = y_range)) +
+  geom_blank(aes(y = -y_range)) +
+  geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
+  geom_jitter(width = 0.05) + 
+  stat_summary(fun = median, geom = "point", shape = 95, size = 8, color = "red") +
+  labs(y = "Change (% Cover)") +
+  facet_wrap(vars(Strata), nrow = 1, scales = "free") +
+  # geom_text_repel(force=1, point.padding=unit(1,'lines'),
+  #                 hjust=1, size = 3,
+  #                 direction='x',
+  #                 nudge_y=0.1,
+  #                 segment.size=0.7) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+p2
+
+#........STRIP CHRT PAIR -----
+p1 <- Tot_Cov %>%
+  #select(-count_pp) %>%
+  ungroup() %>%
+  #mutate(S_Year = as.factor(S_Year)) %>%
+  complete(nesting(S_Cycle), # Complete a data frame with missing combinations of factors 
+           # nesting = find only the combinations that occur in the selected factors
+           Sampling_Frame, nesting(Strata), Plot_Number,
+           fill = list(tot_pct_cov = 0)) %>%
+  ggplot(aes(x=S_Cycle, y=tot_pct_cov, group=Plot_Number)) +
+  geom_line(size=1, alpha=0.5, position=position_dodge(width=0.2)) +
+  geom_point(position=position_dodge(width=0.2)) +
+  xlab('') +
+  ylab('% Cover') +
+  facet_wrap(vars(Strata), scales = "free", nrow = 1)
+p1
+
+#........STRIP/JITTER MULTI -----
+grid.arrange(p1, p2, nrow = 2, top = "Total Cover" 
+             #heights = c(2, 1.5)
+)
 
 # ....... Bar: SF compare % cover ----
 #' *notes*
@@ -472,16 +628,6 @@ Tot_Cov_Stats %>%
 #   facet_wrap( ~Strata, scales = 'free_x', dir = "v")
 
 
-
-#........JITTER PLOT ----
-# Total Cover Change jitter plot
-Tot_Cov_Chg %>%
-  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg)) +
-  geom_jitter(width = 0.05) +
-  geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
-  stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
-  labs(x = "Sampling Frame", y = "Change in % Cover") +
-  facet_wrap(vars(Strata), dir = "v") 
  
 
 #.-----------------------------------------------------
@@ -515,18 +661,6 @@ Nat_Cov %>%
   scale_x_reordered() +
   xlab("Plot Number")
 
-#........STRIP CHRT PAIR -----
-Nat_Cov %>%
-  #mutate(Status = fct_rev(Status)) %>%
-  ggplot(aes(x=S_Cycle, y=tot_pct_cov, group=Plot_Number)) +
-  geom_line(size=1, alpha=0.5, position=position_dodge(width=0.2)) +
-  geom_point(position=position_dodge(width=0.2)) +
-  xlab('Sample Cycle') +
-  ylab('Total % Cover') +
-  #scale_fill_brewer(palette="Accent") +
-  #scale_color_brewer(palette="Accent") + 
-  #theme_bw() +
-  facet_grid(cols = vars(Nativity), rows = vars(Strata))
 
 # ...Change ----
 
@@ -551,26 +685,21 @@ Nat_Cov_Chg %>%
   xlab("Plot Number") + ylab("Change in % Cover")
 
 
-#........JITTER PLOT ----
-Nat_Cov_Chg %>%
-  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg)) +
-  geom_jitter(width = 0.05) +
-  geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
-  stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
-  facet_grid(vars(Strata), vars(Nativity))  
-
-
 #........QUAD NAT COVER----
 plt <- max(c(abs(max(Nat_Cov_Chg$tot_pct_cov_chg)), 
                  abs(min(Nat_Cov_Chg$tot_pct_cov_chg))))
 
 Nat_Cov_Chg %>%
+  filter(Strata == "UNDERSTORY1") %>%
   select(-`1`, -`2`) %>%
   pivot_wider(names_from = Nativity, values_from = tot_pct_cov_chg) %>%
-  ggplot(aes(x = Native, y = `Non-Native`)) +
-  annotate("rect", xmin = 0, xmax = Inf, ymin = 0, ymax = -Inf, fill= "green", alpha = .25) + 
-  annotate("rect", xmin = 0, xmax = -Inf, ymin = Inf, ymax = 0, fill= "red", alpha = .25) +
-  geom_point() +
+  ggplot(aes(x = Native, y = `Non-Native`, label = Plot_Number)) +
+  annotate("rect", xmin = 0, xmax = Inf, ymin = 0, ymax = -Inf, fill= "#1B9E77", alpha = .25) + 
+  annotate("rect", xmin = 0, xmax = -Inf, ymin = Inf, ymax = 0, fill= "#D95F02", alpha = .25) +
+  geom_point(color = "black", shape = 19, size = 5) +
+  geom_text(vjust = 0.4, color = "white", size = 3, 
+            fontface = "bold", show.legend = FALSE) +
+  #geom_text_repel() +
   geom_vline(xintercept = 0) + 
   geom_hline(yintercept = 0) +
   xlim(min(-plt),max(plt)) +
@@ -578,10 +707,8 @@ Nat_Cov_Chg %>%
   facet_wrap(vars(Strata), dir = "v") +
   ylab("Change in Non-Native Cover") +
   xlab("Change in Native Cover") 
+
    
-
-
-
 # ...Summary Stats ----
 
 # Use custom function at top of script to add stats to dataset
@@ -593,20 +720,22 @@ Nat_Cov_Stats <- add.stats(
 
 #........BAR YEARLY MEANS----
 Nat_Cov_Stats %>%
-  filter(Nativity != "Unknown") %>%
+  filter(S_Cycle != "CHG") %>%
   ggplot(aes(x = S_Cycle, y = MEAN, fill = Nativity)) +
   geom_col(position = position_dodge()) +
   geom_errorbar(aes(ymin=L, ymax=R), width=.2,
                 position=position_dodge(.9)) +
   labs(y = "% Cover") +
   facet_wrap(vars(Strata, Nativity), scales = "free_x") +
-  scale_fill_brewer(palette="Dark2") 
+  scale_fill_brewer(palette="Dark2") +
+  xlab("Sample Cycle") +
+  theme(legend.title = element_blank())
 
 
 #........BAR CHG----
-ncs <- Nat_Cov_Stats %>%
-  filter(Nativity != "Unknown") %>%
+Nat_Cov_Stats %>%
   filter(S_Cycle == "CHG") %>%
+  #filter(Strata == "UNDERSTORY1") %>%
   ggplot(aes(x = S_Cycle, y = MEAN, fill = Nativity)) +
   geom_col(position = position_dodge()) +
   geom_errorbar(aes(ymin=L, ymax=R), width=.2,
@@ -616,9 +745,72 @@ ncs <- Nat_Cov_Stats %>%
   scale_fill_brewer(palette="Dark2") +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
-        axis.ticks.x=element_blank())
-ncs
+        axis.ticks.x=element_blank(),
+        legend.title = element_blank())
+
 #ggsave(here("figs", "bar_mean_cov_chg_nativity.png"))  
+
+
+#........JITTER PLOT ----
+
+# Jitter plot change (stand alone)
+Nat_Cov_Chg %>%
+  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg)) +
+  geom_jitter(width = 0.05) +
+  geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
+  stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
+  facet_grid(vars(Strata), vars(Nativity))  
+
+# Calculate range for nat__cov_chg so that zeros will line up.
+Nat_Cov_Chg_range <- Nat_Cov_Chg %>%
+  group_by(Sampling_Frame, Nativity, Strata) %>%
+  summarize(y_range = max(abs(tot_pct_cov_chg))) %>%
+  ungroup()
+# Add range column to Chg dataset  
+Nat_Cov_Chg <- Nat_Cov_Chg %>%
+  inner_join(Nat_Cov_Chg_range)
+
+# Jitter plot change (for multichart)
+Nat_Cov_Chg_jitter <- Nat_Cov_Chg %>%
+  ggplot(aes(x =Sampling_Frame, y = tot_pct_cov_chg, label = Plot_Number)) +
+  geom_blank(aes(y = y_range)) +
+  geom_blank(aes(y = -y_range)) +
+  geom_hline(yintercept=0.0, linetype = "dashed", color = "gray", size = 1) +
+  geom_jitter(width = 0.05) + 
+  stat_summary(fun = median, geom = "point", shape = 95, size = 8, color = "red") +
+  labs(y = "Change (% Cover)") +
+  facet_wrap(vars(Strata, Nativity), nrow = 1, scales = "free") +
+  # geom_text_repel(force=1, point.padding=unit(1,'lines'),
+  #                 hjust=1, size = 3,
+  #                 direction='x',
+  #                 nudge_y=0.1,
+  #                 segment.size=0.7) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+Nat_Cov_Chg_jitter
+
+#........STRIP CHRT PAIR -----
+
+Nat_Cov_strip <- Nat_Cov %>%
+  #mutate(Status = fct_rev(Status)) %>%
+  ggplot(aes(x=S_Cycle, y=tot_pct_cov, group=Plot_Number)) +
+  geom_line(size=1, alpha=0.5, position=position_dodge(width=0.2)) +
+  geom_point(position=position_dodge(width=0.2)) +
+  xlab('Sample Cycle') +
+  ylab('Total % Cover') +
+  #scale_fill_brewer(palette="Accent") +
+  #scale_color_brewer(palette="Accent") + 
+  #theme_bw() +
+  facet_wrap(vars(Strata, Nativity), nrow = 1, scales = "free")
+  #facet_grid(cols = vars(Nativity), rows = vars(Strata))
+Nat_Cov_strip
+
+#........STRIP/JITTER MULTI -----
+grid.arrange(Nat_Cov_strip, Nat_Cov_Chg_jitter, nrow = 2, top = "Nativity Cover" 
+             #heights = c(2, 1.5)
+)
+
 
 
 #.-----------------------------------------------------
@@ -630,6 +822,8 @@ Nat_Rich <- Cover %>%
   summarise(richness = n_distinct(Code))
 
 #........STRIP CHRT PAIR -----
+
+
 Nat_Rich %>%
   #mutate(Status = fct_rev(Status)) %>%
   ggplot(aes(x=S_Cycle, y=richness, group=Plot_Number)) +
@@ -717,7 +911,8 @@ nrs <- Nat_Rich_Stats %>%
   scale_fill_brewer(palette="Dark2") +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
-        axis.ticks.x=element_blank())
+        axis.ticks.x=element_blank(),
+        legend.position = "none")
 nrs
 #ggsave(here("figs", "bar_mean_nat_rich_chg.png")) 
 #grid.arrange(ncs, nrs, nrow = 1)
@@ -726,10 +921,11 @@ nrs
 # 4) Lifeform Total % cover ----
 #.......................................................
 #'* Optional Filter  * 
-Forms_Cov_Filter <- Cover %>%
-  mutate(NLF = paste0(Nativity, " ", Life_form, "s")) %>%
-  filter(Plot_Number %in% c(2,4,6,9)) %>%
-  filter(Nativity != "Unknown")
+ Forms_Cov_Filter <- Cover %>%
+  # Take 'Nativity' and 'Life_form' to make plural category (ex. 'Native Shrubs') 
+   mutate(NLF = paste0(Nativity, " ", Life_form, "s")) #%>%
+#   filter(Plot_Number %in% c(2,4,6,9)) %>%
+#   filter(Nativity != "Unknown")
   #drop_na(Name)
 
 # Calculate Total Percent Cover for Native vs. Non-native Lifeforms
@@ -819,7 +1015,10 @@ Forms_Cov_Chg %>%
   geom_hline(yintercept=0, linetype = "dashed", color = "gray", size = 1) +
   stat_summary(fun = mean, geom = "point", shape = 95, size = 8, color = "red") +
   facet_grid(vars(Strata), vars(Life_form)) +
-  scale_color_brewer(palette="Dark2") 
+  scale_color_brewer(palette="Dark2") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
 
 
 #........STRIP CHRT PAIR -----
@@ -918,9 +1117,9 @@ ncs
 #.......................................................
 
 #'* Optional Filter  * 
-Spp_Cov_Filter <- Cover %>%
-  filter(Plot_Number %in% c(2,4,6,9)) %>%
-  drop_na(Name)
+Spp_Cov_Filter <- Cover #%>%
+  #filter(Plot_Number %in% c(2,4,6,9)) %>%
+  #drop_na(Name)
 
 # Calculate Total Percent Cover for Native vs. Non-native
 Spp_Cov <- Spp_Cov_Filter %>%
@@ -1070,10 +1269,7 @@ Spp_Cov_Chg_1a2 %>%
   #name = NULL, values = c("Specificity" = "black")) +
   theme(legend.title=element_blank()) +
   coord_flip()
-p1a2
-#png(here("figures","spp_cov_chg_1a2.png"), width = 400, height = 200)
-#plot(p1a2)
-#dev.off()
+
 
 
 
@@ -1096,6 +1292,9 @@ Spp_Hits <- Cover %>%
   summarise(tot_hits = (sum(Hits_Sp)), .groups = 'drop') %>%
   filter(S_Cycle == "2")
 
+Spp_Hits <- Spp_Hits %>%
+  drop_na(Name)
+  
 
 library(treemapify)
 
@@ -1109,11 +1308,31 @@ tree.plot <- ggplot(Spp_Hits, aes(area = tot_hits, subgroup = Nativity,
                     grow = TRUE, reflow = T, min.size = 5) +
   scale_fill_brewer(palette="Dark2") +
   theme(legend.position = "none")
-tree.plot
-png(here("figures","tree_plot_230x160r180.png"), width = 230, height = 160, 
-    units = 'mm', res = 180)
-plot(tree.plot)
-dev.off()
+
+tree.plot #if this throws "Error in 1:row_n : argument of length 0", than check
+# for NA's in the dataset. 
+
+# Add lifeforms to treemap
+tree.plot2 <- ggplot(Spp_Hits, aes(area = tot_hits, subgroup = Nativity, 
+                                  subgroup2 = Life_form, fill = Nativity, label = Name)) +
+  geom_treemap(size = 1) +
+  geom_treemap_subgroup_border(colour = "gray30", size = 5, alpha = 0.5) +
+  geom_treemap_subgroup2_border(colour = "black", size = 3) +
+  geom_treemap_text(fontface = "italic", colour = "white", place = "middle",
+                    grow = F, reflow = T, min.size = 5) +
+  geom_treemap_subgroup2_text(
+    colour = "black",alpha = 1, fontface = "italic", 
+    size = 10, place = "bottomright") +
+  scale_fill_brewer(palette="Dark2") +
+  theme(legend.position="bottom", legend.title = element_blank())
+
+tree.plot2 #if this throws "Error in 1:row_n : argument of length 0", than check
+# for NA's in the dataset. 
+
+#png(here("figures","tree_plot_230x160r180.png"), width = 230, height = 160, 
+#    units = 'mm', res = 180)
+#plot(tree.plot)
+#dev.off()
 
 # # Average Cover Treemap
 # Spp_Cov %>%
@@ -1169,8 +1388,8 @@ ggplot(Spp_Slope) +
   facet_grid(vars(Strata), vars(Plot), labeller = label_both) +
   geom_text_repel(label=Spp_Slope$code_lab,
                   y=Spp_Slope$`1`, x=rep(1, NROW(Spp_Slope)), hjust=1.1, size=3, direction = "y") +
-  geom_text(label="2010", x=1, y=1.1*(max(Spp_Slope$`1`, Spp_Slope$`2`)), hjust=1.2, size=4.5) +
-  geom_text(label="2015", x=2, y=1.1*(max(Spp_Slope$`1`, Spp_Slope$`2`)), hjust=-0.1, size=4.5) +
+  geom_text(label="2012", x=1, y=1.1*(max(Spp_Slope$`1`, Spp_Slope$`2`)), hjust=1.2, size=4.5) +
+  geom_text(label="2017", x=2, y=1.1*(max(Spp_Slope$`1`, Spp_Slope$`2`)), hjust=-0.1, size=4.5) +
   guides(color=guide_legend("")) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
   theme(axis.ticks = element_blank(),axis.text.x = element_blank()) +
@@ -1188,8 +1407,8 @@ Spp_Slope_X <- Spp_Cov_Chg %>%
                               `2` >= 5 ~ Code,
                               TRUE ~ "")) %>%
   mutate(Direction = as.factor(Direction)) %>%
-  filter(Plot_Number == "10" |
-           Plot_Number == "7" )
+  filter(Plot_Number == "2" |
+           Plot_Number == "3" )
 #filter(Code == "CIBGLA")
 
 
@@ -1203,8 +1422,8 @@ ggplot(Spp_Slope_X) +
   facet_grid(vars(Strata), vars(Plot), labeller = label_both) +
   geom_text_repel(label=Spp_Slope_X$code_lab,
                   y=Spp_Slope_X$`1`, x=rep(1, NROW(Spp_Slope_X)), hjust=1.1, size=3, direction = "y") +
-  geom_text(label="2010", x=1, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=1.2, size=4.5) +
-  geom_text(label="2015", x=2, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=-0.1, size=4.5) +
+  geom_text(label="2012", x=1, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=1.2, size=4.5) +
+  geom_text(label="2017", x=2, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=-0.1, size=4.5) +
   guides(color=guide_legend("")) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
   theme(axis.ticks = element_blank(),axis.text.x = element_blank()) +
@@ -1222,7 +1441,7 @@ Spp_Slope_X <- Spp_Cov_Chg %>%
                               `2` >= 5 ~ Code,
                               TRUE ~ "")) %>%
   mutate(Direction = as.factor(Direction)) %>%
-  filter(Code == "BRUGYM")
+  filter(Code == "FESRUB")
 
 
 ggplot(Spp_Slope_X) +
@@ -1235,12 +1454,24 @@ ggplot(Spp_Slope_X) +
   facet_grid(vars(Strata), vars(Plot), labeller = label_both) +
   geom_text_repel(label=Spp_Slope_X$code_lab,
                   y=Spp_Slope_X$`1`, x=rep(1, NROW(Spp_Slope_X)), hjust=1.1, size=3, direction = "y") +
-  geom_text(label="2014", x=1, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=1.2, size=4.5) +
-  geom_text(label="2019", x=2, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=-0.1, size=4.5) +
+  geom_text(label="2012", x=1, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=1.2, size=4.5) +
+  geom_text(label="2017", x=2, y=1.1*(max(Spp_Slope_X$`1`, Spp_Slope_X$`2`)), hjust=-0.1, size=4.5) +
   guides(color=guide_legend("")) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
   theme(axis.ticks = element_blank(),axis.text.x = element_blank()) +
   scale_color_manual(values = c("#CC0000", "#009900")) 
+
+# ........BAR SP = X ----
+sp.x <- "POAPRA"
+Spp_Cov %>%
+  filter(Code == sp.x) %>%
+  ggplot(aes(x = reorder_within(Plot_Number, desc(pct_cov_sp), Strata), y = pct_cov_sp, fill = S_Cycle)) +
+  geom_col(position = position_dodge()) +
+  ggtitle(sp.x) +
+  scale_fill_brewer(palette="Accent") +
+  facet_wrap(vars(Strata), dir = "v", scales = "free_x") +
+  ylab("Total % Cover") + xlab("Plot Number") +
+  scale_x_reordered()
 
 #........TABLE DECLINES ----
 declines <- Spp_Cov_Stats %>%
@@ -1313,3 +1544,4 @@ Spp_Pres_Chg %>%
 
   
 
+rmarkdown::render("Resource_Brief.Rmd")

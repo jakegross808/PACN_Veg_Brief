@@ -221,13 +221,13 @@ library(leaflet)
 library(terra)
 
 points <- Cover_Fixed %>%
-  select(Plot_Number, Center_X_Coord, Center_Y_Coord) %>%
+  select(Unit_Code, Sampling_Frame, Plot_Number, Center_X_Coord, Center_Y_Coord) %>%
   rename(x = Center_X_Coord) %>%
   rename(y = Center_Y_Coord) %>%
   distinct() 
 
 points.matrix <- points %>%
-  select(-Plot_Number) 
+  select(-Unit_Code, -Sampling_Frame, -Plot_Number,) 
 
 points.matrix <- as.matrix(points.matrix)   
 v <- vect(points.matrix, crs="+proj=utm +zone=04 +datum=NAD83  +units=m")
@@ -241,7 +241,7 @@ plots.xy <- as_tibble(plots.xy) %>%
   rename(lng = x...1) %>%
   rename(lat = y...2)
   
-#------------------------------------------------------------------------
+#........Sampling Map--------------------------------------------------------------
 
 leaflet(plots.xy) %>% 
   addProviderTiles(providers$OpenTopoMap) %>%
@@ -707,6 +707,89 @@ Nat_Cov_Chg %>%
   facet_wrap(vars(Strata), dir = "v") +
   ylab("Change in Non-Native Cover") +
   xlab("Change in Native Cover") 
+
+#........QUAD Nat vs Non---------------------------------------------------------
+
+ids <- factor(c("1.1", "2.1", "1.2", "2.2", "1.3"))
+
+values <- data.frame(
+  id = ids,
+  value = c("1 Native (-)\nNon-native (-)\n",
+            "2 Native (-)\nNon-native (+)\n",
+            "3 Native (+)\nNon-native (++)\n",
+            "4 Native (++)\nNon-native (+)\n",
+            "5 Native (++)\nNon-native (-)\n"))
+
+#Create a custom color scale
+quad_c <- c("#cccccc","#d11141","#f37735","#C8E52A","#00b159")
+
+positions <- data.frame(
+  id = rep(ids, each = 4),
+  x = c(-100, 0, 0, -100,
+        -100, -100, 0, 0,
+        #-100, 0, 0, 0, 
+        0, 0, 0, 100, 
+        0, 0, 100, 100,
+        0, 100, 100, 0),
+  y = c(-100, -100, 0, 0,
+        0, 100, 100, 0, 
+        #-100, 0, 0, -100, 
+        0, 0, 100, 100, 
+        0, 0, 0, 100, 
+        -100, -100, 0, 0))
+datapoly <- merge(values, positions, by = c("id"))
+
+
+quad_NCC <- Nat_Cov_Chg %>%
+  filter(Strata == "UNDERSTORY1") %>%
+  select(-`1`, -`2`) %>%
+  pivot_wider(names_from = Nativity, values_from = tot_pct_cov_chg) 
+
+#Get max value for plotting data
+ncc.max <- quad_NCC %>%
+  select(Native, `Non-Native`) 
+ncc.max <- max(c(abs(max(ncc.max)), abs(min(ncc.max))))
+-ncc.max  
+
+# Plot the Quad Nat vs Non graph
+ggplot(datapoly, aes(x = x, y = y)) +
+  geom_polygon(aes(fill = value, group = id)) +
+  scale_fill_manual(values = quad_c) +
+  geom_point(data = quad_NCC, 
+             mapping = aes(x = Native, y = `Non-Native`), 
+             color = "black", 
+             size = 2,
+             ) +
+  geom_text_repel(data = quad_NCC,
+                  mapping = aes(x = Native, y = `Non-Native`, label = Plot_Number),
+                  min.segment.length = 0, seed = 42, box.padding = 0.5) +
+  facet_wrap(vars(Strata), dir = "v") +
+  ylab("Change in Non-Native Cover") +
+  xlab("Change in Native Cover") +
+  geom_vline(xintercept = 0) + 
+  geom_hline(yintercept = 0) +
+  coord_cartesian(xlim = c(-ncc.max, ncc.max), ylim = c(-ncc.max, ncc.max)) 
+q
+
+
+
+
+#........QUAD COVER Map---------------------------------------------------------
+Nat_Cov_Chg.map <- Nat_Cov_Chg %>%
+  left_join(plots.xy)
+  
+leaflet(plots.xy) %>% 
+  addProviderTiles(providers$OpenTopoMap) %>%
+  addCircleMarkers(
+    radius = 8,
+    color = "navy",
+    stroke = FALSE, fillOpacity = 0.4,
+    label = plots.xy$Plot_Number,
+    labelOptions = labelOptions(noHide = T, 
+                                direction = "center", 
+                                textOnly = T,
+                                style = list("color" = "white"))
+  )
 
    
 # ...Summary Stats ----

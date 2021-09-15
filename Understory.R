@@ -753,7 +753,7 @@ ncc.max <- max(c(abs(max(ncc.max)), abs(min(ncc.max))))
 
 # Plot the Quad Nat vs Non graph
 ggplot(datapoly, aes(x = x, y = y)) +
-  geom_polygon(aes(fill = value, group = id)) +
+  geom_polygon(aes(fill = value)) + # cannot do alpha w/coord_cartesian???
   scale_fill_manual(values = quad_c) +
   geom_point(data = quad_NCC, 
              mapping = aes(x = Native, y = `Non-Native`), 
@@ -768,8 +768,30 @@ ggplot(datapoly, aes(x = x, y = y)) +
   xlab("Change in Native Cover") +
   geom_vline(xintercept = 0) + 
   geom_hline(yintercept = 0) +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 10)) +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
   coord_cartesian(xlim = c(-ncc.max, ncc.max), ylim = c(-ncc.max, ncc.max)) 
-q
+
+# Plot the Quad Nat vs Non graph
+ggplot() +
+  geom_point(data = quad_NCC, 
+             mapping = aes(x = Native, y = `Non-Native`), 
+             color = "black", 
+             size = 2,
+  ) +
+  geom_text_repel(data = quad_NCC,
+                  mapping = aes(x = Native, y = `Non-Native`, label = Plot_Number),
+                  min.segment.length = 0, seed = 42, box.padding = 0.5) +
+  geom_polygon(data = datapoly, alpha =.5, aes(x = x, y = y, group = value, fill = value)) + # cannot do alpha w/coord_cartesian???
+  scale_fill_identity() +
+  facet_wrap(vars(Strata), dir = "v") +
+  ylab("Change in Non-Native Cover") +
+  xlab("Change in Native Cover") +
+  geom_vline(xintercept = 0) + 
+  geom_hline(yintercept = 0) +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 10)) +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
+  coord_cartesian(xlim = c(-ncc.max, ncc.max), ylim = c(-ncc.max, ncc.max))
 
 
 

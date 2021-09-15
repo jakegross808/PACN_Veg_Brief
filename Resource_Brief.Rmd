@@ -38,6 +38,14 @@ leaflet(plots.xy) %>%
 
 ## Results
 
+[Plant Community Composition (2017):]{.ul}
+
+-   Vegetation within the Haleakala subalpine shrubland is generally restricted to the low growing shrub and herb layer. Pole-intercept cover sampling showed the majority of the vegetation occurred below 1 m, within the "UNDERSTORY1" stratum (Figure 2).
+
+-   Native shrubs and non-native grasses were the dominant species cover within the subalpine shrubland community at Haleakalā National Park (Figure 3).
+
+-   
+
 ## Summary
 
 ## References

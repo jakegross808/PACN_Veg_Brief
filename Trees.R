@@ -131,13 +131,13 @@ dir.create(figs, showWarnings = FALSE)
 #.......................................................
 # User selected subsets
 levels(as.factor(Event$Unit_Code))
-uc <- "AMME"
+uc <- "HALE"
 
 levels(as.factor(Event$Community))
-c <- "All"
+c <- "Subalpine Shrubland"
 
 levels(as.factor(Event$Sampling_Frame))
-sf <- "All"
+sf <- "Subalpine Shrubland"
 
 
 Event_filter <- site.filter(Event, uc, c, sf) %>%
